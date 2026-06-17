@@ -465,7 +465,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient }) {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === "all" || c.status === filter || c.type === filter;
     return matchSearch && matchFilter;
-  });
+  }).sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
