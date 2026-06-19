@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
 import { collection, onSnapshot, doc, setDoc, writeBatch } from "firebase/firestore";
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 
 // ─── GOOGLE CALENDAR INTEGRATION ───────────────────────────────────────────
 const CALENDAR_MCP_URL = "https://calendarmcp.googleapis.com/mcp/v1";
@@ -583,12 +584,60 @@ function ClientsTab({ clients, onClientSelect, onAddClient }) {
 }
 
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
+
+// ─── LOGIN ──────────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+    } catch (err) {
+      setError("Email o contraseña incorrectos");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ background: "#0D1F0F", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Space Grotesk', sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap');`}</style>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 32 }}>
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#7AE84A" }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#7AE84A", letterSpacing: "0.1em", textTransform: "uppercase" }}>Garden Highpro · CRM</span>
+      </div>
+      <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 320, display: "flex", flexDirection: "column", gap: 14 }}>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
+          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "13px 16px", fontFamily: "inherit", outline: "none" }} />
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" required
+          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "13px 16px", fontFamily: "inherit", outline: "none" }} />
+        {error && <div style={{ color: "#FF4D4D", fontSize: 12 }}>{error}</div>}
+        <button type="submit" disabled={loading}
+          style={{ background: "#7AE84A", color: "#0D1F0F", border: "none", borderRadius: 10, padding: "13px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 8 }}>
+          {loading ? "Entrando..." : "Entrar"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function GrowCRM() {
+  const [user, setUser] = useState(undefined); // undefined = checking, null = logged out, object = logged in
   const { clients, loading, updateClient: fsUpdateClient, addClient: fsAddClient } = useFirestoreClients();
   const [tab, setTab] = useState("today");
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientForm, setShowClientForm] = useState(false);
   const [editClient, setEditClient] = useState(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsub();
+  }, []);
 
   // Mantiene selectedClient sincronizado con los datos frescos de Firestore
   useEffect(() => {
@@ -607,6 +656,16 @@ export default function GrowCRM() {
     const newClient = { ...form, id: Date.now(), visits: [] };
     fsAddClient(newClient);
     setShowClientForm(false);
+  }
+
+  if (user === undefined) {
+    return (
+      <div style={{ background: "#0D1F0F", minHeight: "100vh" }} />
+    );
+  }
+
+  if (user === null) {
+    return <LoginScreen />;
   }
 
   if (loading) {
@@ -635,9 +694,12 @@ export default function GrowCRM() {
         <div style={{ height: 44, background: "#0D1F0F" }} />
 
         {/* Brand header */}
-        <div style={{ padding: "0 16px 4px", display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#7AE84A" }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#4A6B4C", letterSpacing: "0.12em", textTransform: "uppercase" }}>Garden Highpro · CRM</span>
+        <div style={{ padding: "0 16px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#7AE84A" }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#4A6B4C", letterSpacing: "0.12em", textTransform: "uppercase" }}>Garden Highpro · CRM</span>
+          </div>
+          <button onClick={() => signOut(auth)} style={{ background: "none", border: "none", color: "#2E4A30", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Salir</button>
         </div>
 
         {/* Content */}
