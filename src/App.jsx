@@ -122,6 +122,14 @@ const ICONS = {
   thermo:   "M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z",
 };
 
+
+// Detecta si una direccion guardada es en realidad un link de Maps
+function getMapsUrl(address, fallbackName) {
+  if (!address) return `https://maps.google.com/?q=${encodeURIComponent(fallbackName)}`;
+  const isLink = /^https?:\/\//i.test(address.trim());
+  return isLink ? address.trim() : `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+}
+
 // ─── THERMOMETER STATUS ──────────────────────────────────────────────────────
 function ThermoBadge({ status }) {
   const cfg = STATUS_CONFIG[status];
@@ -198,7 +206,7 @@ function TodayTab({ clients, onClientSelect }) {
                     style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                     <Icon d={ICONS.whatsapp} size={14} /> WhatsApp
                   </a>
-                  <a href={`https://maps.google.com/?q=${encodeURIComponent(evt.client.address)}`} target="_blank" rel="noreferrer"
+                  <a href={getMapsUrl(evt.client.address, evt.client.name)} target="_blank" rel="noreferrer"
                     onClick={e => e.stopPropagation()}
                     style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                     <Icon d={ICONS.map} size={14} /> Maps
@@ -364,7 +372,7 @@ function ClientDetail({ client, onBack, onUpdate }) {
             {client.phone_display && <div style={{ fontSize: 12, color: "#7AE84A", marginTop: 4 }}>{client.phone_display}</div>}
             {editingAddress ? (
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <input value={addressInput} onChange={e => setAddressInput(e.target.value)} placeholder="Pegá la dirección de Maps"
+                <input value={addressInput} onChange={e => setAddressInput(e.target.value)} placeholder="Pegá el link de Maps o la dirección"
                   style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 12, padding: "6px 8px", fontFamily: "inherit", outline: "none" }} />
                 <button onClick={handleSaveAddress} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
               </div>
@@ -383,7 +391,7 @@ function ClientDetail({ client, onBack, onUpdate }) {
             style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon d={ICONS.whatsapp} size={16} /> WhatsApp
           </a>
-          <a href={`https://maps.google.com/?q=${encodeURIComponent(client.address || client.name)}`} target="_blank" rel="noreferrer"
+          <a href={getMapsUrl(client.address, client.name)} target="_blank" rel="noreferrer"
             style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon d={ICONS.map} size={16} /> {client.address ? "Maps" : "Buscar ubicación"}
           </a>
