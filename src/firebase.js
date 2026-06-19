@@ -1,21 +1,22 @@
-import { initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
-import { getAuth } from 'firebase/auth'
+// Importamos las funciones que necesitamos del SDK de Firebase
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
-// ⚠️ REEMPLAZÁ estos valores con los de tu proyecto Firebase
-// Los obtenés en: Firebase Console → Tu proyecto → Configuración → Tu app
+// Tus credenciales reales de growcrm-highpro
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROJECT.firebaseapp.com",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_PROJECT.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
-}
+  apiKey: "AIzaSyAFYtOo_23sBn-5-C0VGTaITHXtYnfPexQ",
+  authDomain: "growcrm-highpro.firebaseapp.com",
+  projectId: "growcrm-highpro",
+  storageBucket: "growcrm-highpro.firebasestorage.app",
+  messagingSenderId: "382190286267",
+  appId: "1:382190286267:web:be784fc9415801a5ae409e"
+};
 
-const app = initializeApp(firebaseConfig)
+// Inicializamos la aplicación de Firebase
+const app = initializeApp(firebaseConfig);
 
-export const db = getFirestore(app)
-export const storage = getStorage(app)
-export const auth = getAuth(app)
+// Inicializamos y exportamos las bases de datos para usarlas en la app
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+export default app;
