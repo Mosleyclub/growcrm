@@ -3,34 +3,100 @@ import { db, auth } from "./firebase";
 import { collection, onSnapshot, doc, setDoc, writeBatch } from "firebase/firestore";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 
-// ─── GOOGLE CALENDAR INTEGRATION ───────────────────────────────────────────
-const CALENDAR_MCP_URL = "https://calendarmcp.googleapis.com/mcp/v1";
+// ─── GOOGLE CALENDAR INTEGRATION (OAuth real) ──────────────────────────────
+const GOOGLE_CLIENT_ID = "382190286267-tr23lv8bug5540csvmaffv296ck4vbt.apps.googleusercontent.com";
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
 
-async function fetchCalendarEvents() {
-  const today = new Date();
-  const start = new Date(today);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(today);
-  end.setHours(23, 59, 59, 999);
+let gTokenClient = null;
+let gAccessToken = null;
+
+function loadGoogleScript() {
+  return new Promise((resolve) => {
+    if (window.google?.accounts?.oauth2) return resolve();
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.onload = resolve;
+    document.body.appendChild(script);
+  });
+}
+
+async function connectGoogleCalendar() {
+  await loadGoogleScript();
+  return new Promise((resolve, reject) => {
+    gTokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: CALENDAR_SCOPE,
+      callback: (resp) => {
+        if (resp.error) return reject(resp);
+        gAccessToken = resp.access_token;
+        localStorage.setItem("g_token", resp.access_token);
+        localStorage.setItem("g_token_expiry", String(Date.now() + (resp.expires_in * 1000)));
+        resolve(resp.access_token);
+      },
+    });
+    gTokenClient.requestAccessToken();
+  });
+}
+
+function getStoredGoogleToken() {
+  const token = localStorage.getItem("g_token");
+  const expiry = Number(localStorage.getItem("g_token_expiry") || 0);
+  if (token && Date.now() < expiry) {
+    gAccessToken = token;
+    return token;
+  }
+  return null;
+}
+
+async function fetchCalendarEvents(rangeStart, rangeEnd) {
+  const token = gAccessToken || getStoredGoogleToken();
+  if (!token) return { needsAuth: true, events: [] };
+
+  const timeMin = rangeStart.toISOString();
+  const timeMax = rangeEnd.toISOString();
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: "You are a calendar assistant. When asked for calendar events, use the Google Calendar MCP tool to list events for today. Return ONLY a JSON array with objects: {id, title, time, location, description}. No markdown, no preamble.",
-        messages: [{ role: "user", content: `List all Google Calendar events for today ${today.toISOString().split('T')[0]}. Return only JSON array.` }],
-        mcp_servers: [{ type: "url", url: CALENDAR_MCP_URL, name: "google-calendar" }]
-      })
-    });
-    const data = await response.json();
-    const text = data.content?.filter(b => b.type === "text").map(b => b.text).join("") || "[]";
-    const clean = text.replace(/```json|```/g, "").trim();
-    return JSON.parse(clean);
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.status === 401) {
+      localStorage.removeItem("g_token");
+      return { needsAuth: true, events: [] };
+    }
+    const data = await res.json();
+    const events = (data.items || []).map(ev => ({
+      id: ev.id,
+      title: ev.summary || "(Sin título)",
+      time: ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "Todo el día",
+      location: ev.location || "",
+      description: ev.description || "",
+      start: ev.start?.dateTime || ev.start?.date,
+    }));
+    return { needsAuth: false, events };
   } catch {
-    return [];
+    return { needsAuth: false, events: [] };
+  }
+}
+
+async function createCalendarEvent({ title, description, location, startDateTime, endDateTime }) {
+  const token = gAccessToken || getStoredGoogleToken();
+  if (!token) return { error: "needsAuth" };
+  try {
+    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        summary: title,
+        description,
+        location,
+        start: { dateTime: startDateTime, timeZone: "America/Argentina/Buenos_Aires" },
+        end: { dateTime: endDateTime, timeZone: "America/Argentina/Buenos_Aires" },
+      }),
+    });
+    return await res.json();
+  } catch (e) {
+    return { error: e.message };
   }
 }
 
@@ -147,19 +213,149 @@ function ThermoBadge({ status }) {
 }
 
 // ─── TODAY TAB ───────────────────────────────────────────────────────────────
+
+// ─── SCHEDULE VISIT (crear evento en Google Calendar) ──────────────────────
+function ScheduleVisitForm({ clients, initialDate, onClose, onSaved }) {
+  const [search, setSearch] = useState("");
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [date, setDate] = useState(initialDate.toISOString().split("T")[0]);
+  const [time, setTime] = useState("10:00");
+  const [duration, setDuration] = useState(30);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const filtered = clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
+
+  async function handleSave() {
+    if (!selectedClient) return;
+    setSaving(true);
+    const start = new Date(`${date}T${time}:00`);
+    const end = new Date(start.getTime() + duration * 60000);
+    const result = await createCalendarEvent({
+      title: `Visita: ${selectedClient.name}`,
+      description: notes,
+      location: selectedClient.address || "",
+      startDateTime: start.toISOString(),
+      endDateTime: end.toISOString(),
+    });
+    setSaving(false);
+    if (!result.error) onSaved();
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0D1F0F", zIndex: 200, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#7AE84A", cursor: "pointer", padding: 4 }}>
+          <Icon d={ICONS.back} size={22} />
+        </button>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>Agendar visita</div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 100px" }}>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Cliente</div>
+          {selectedClient ? (
+            <div style={{ background: "#0A2A10", border: "1px solid #7AE84A", borderRadius: 10, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: "#7AE84A", fontSize: 13, fontWeight: 600 }}>{selectedClient.name}</span>
+              <button onClick={() => setSelectedClient(null)} style={{ background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", fontSize: 12 }}>Cambiar</button>
+            </div>
+          ) : (
+            <>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente..."
+                style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "11px 14px", fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
+              {search && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
+                  {filtered.map(c => (
+                    <div key={c.id} onClick={() => { setSelectedClient(c); setSearch(""); }}
+                      style={{ background: "#1E2E1F", borderRadius: 8, padding: "10px 12px", cursor: "pointer", fontSize: 13, color: "#F2F5EE" }}>
+                      {c.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Fecha</div>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "11px 10px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Hora</div>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)}
+              style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "11px 10px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Duración</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[15, 30, 45, 60].map(d => (
+              <button key={d} onClick={() => setDuration(d)}
+                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: `2px solid ${duration === d ? "#7AE84A" : "#2E4A30"}`, background: duration === d ? "#0A2A10" : "#1E2E1F", color: duration === d ? "#7AE84A" : "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                {d} min
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Notas (opcional)</div>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Motivo de la visita..."
+            style={{ width: "100%", minHeight: 70, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: 14, resize: "none", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }} />
+        </div>
+      </div>
+
+      <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
+        <button onClick={handleSave} disabled={!selectedClient || saving}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: selectedClient && !saving ? "#7AE84A" : "#1E2E1F", color: selectedClient && !saving ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: selectedClient && !saving ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+          {saving ? "Agendando..." : "Agendar en Google Calendar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TodayTab({ clients, onClientSelect }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [needsAuth, setNeedsAuth] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [dayOffset, setDayOffset] = useState(0); // 0 = hoy, -1 = ayer, +1 = mañana
+  const [showNewVisitForm, setShowNewVisitForm] = useState(false);
 
-  useEffect(() => {
-    fetchCalendarEvents().then(evts => {
+  const viewedDate = new Date();
+  viewedDate.setDate(viewedDate.getDate() + dayOffset);
+
+  function loadEvents() {
+    setLoading(true);
+    const start = new Date(viewedDate); start.setHours(0, 0, 0, 0);
+    const end = new Date(viewedDate); end.setHours(23, 59, 59, 999);
+    fetchCalendarEvents(start, end).then(({ needsAuth: na, events: evts }) => {
+      setNeedsAuth(na);
       setEvents(evts);
       setLoading(false);
     });
-  }, []);
+  }
 
-  const today = new Date();
-  const dateStr = today.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+  useEffect(() => { loadEvents(); }, [dayOffset]);
+
+  async function handleConnect() {
+    setConnecting(true);
+    try {
+      await connectGoogleCalendar();
+      loadEvents();
+    } catch {
+      setConnecting(false);
+    }
+    setConnecting(false);
+  }
+
+  const dateStr = viewedDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+  const dayLabel = dayOffset === 0 ? "Recorrida de hoy" : dayOffset < 0 ? `Hace ${Math.abs(dayOffset)} día${Math.abs(dayOffset) > 1 ? "s" : ""}` : `En ${dayOffset} día${dayOffset > 1 ? "s" : ""}`;
 
   // Match calendar events to clients by name similarity
   const matched = events.map(evt => {
@@ -170,21 +366,50 @@ function TodayTab({ clients, onClientSelect }) {
     return { ...evt, client };
   });
 
+  if (showNewVisitForm) {
+    return <ScheduleVisitForm clients={clients} initialDate={viewedDate} onClose={() => setShowNewVisitForm(false)} onSaved={() => { setShowNewVisitForm(false); loadEvents(); }} />;
+  }
+
   return (
     <div style={{ padding: "0 16px 100px" }}>
-      <div style={{ paddingTop: 24, paddingBottom: 16 }}>
-        <div style={{ fontSize: 11, color: "#7AE84A", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Recorrida de hoy</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#F2F5EE", textTransform: "capitalize", marginTop: 2 }}>{dateStr}</div>
+      <div style={{ paddingTop: 24, paddingBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: 11, color: "#7AE84A", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>{dayLabel}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#F2F5EE", textTransform: "capitalize", marginTop: 2 }}>{dateStr}</div>
+        </div>
+        {!needsAuth && (
+          <button onClick={() => setShowNewVisitForm(true)}
+            style={{ background: "#7AE84A", border: "none", borderRadius: 10, padding: "8px 12px", color: "#0D1F0F", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
+            <Icon d={ICONS.plus} size={14} color="#0D1F0F" /> Agendar
+          </button>
+        )}
       </div>
 
-      {loading ? (
+      {/* Day navigator */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setDayOffset(d => d - 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Anterior</button>
+        {dayOffset !== 0 && (
+          <button onClick={() => setDayOffset(0)} style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 14px", color: "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Hoy</button>
+        )}
+        <button onClick={() => setDayOffset(d => d + 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Siguiente →</button>
+      </div>
+
+      {needsAuth ? (
+        <div style={{ background: "#1E2E1F", borderRadius: 12, padding: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: "#F2F5EE", marginBottom: 4, fontWeight: 600 }}>Conectá tu Google Calendar</div>
+          <div style={{ fontSize: 12, color: "#4A6B4C", marginBottom: 16 }}>Para ver y agendar visitas directamente desde la app</div>
+          <button onClick={handleConnect} disabled={connecting}
+            style={{ background: "#7AE84A", border: "none", borderRadius: 10, padding: "12px 24px", color: "#0D1F0F", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            {connecting ? "Conectando..." : "Conectar Google Calendar"}
+          </button>
+        </div>
+      ) : loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#4A6B4C" }}>
           <div style={{ fontSize: 13 }}>Cargando calendario…</div>
         </div>
       ) : events.length === 0 ? (
         <div style={{ background: "#1E2E1F", borderRadius: 12, padding: 20, textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: "#4A6B4C" }}>No hay visitas agendadas para hoy</div>
-          <div style={{ fontSize: 11, color: "#2E4A30", marginTop: 4 }}>Los eventos de Google Calendar aparecen acá</div>
+          <div style={{ fontSize: 13, color: "#4A6B4C" }}>No hay visitas agendadas</div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
