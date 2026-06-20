@@ -4,7 +4,7 @@ import { collection, onSnapshot, doc, setDoc, writeBatch } from "firebase/firest
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 
 // ─── GOOGLE CALENDAR INTEGRATION (OAuth real) ──────────────────────────────
-const GOOGLE_CLIENT_ID = "382190286267-tr23lv8bug5540csvmaffv296ck4vbt.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "382190286267-tr23lvv8bug5540csvmaffv296ck4vbt.apps.googleusercontent.com";
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
 
 let gTokenClient = null;
