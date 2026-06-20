@@ -357,14 +357,19 @@ function TodayTab({ clients, onClientSelect }) {
   const dateStr = viewedDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
   const dayLabel = dayOffset === 0 ? "Recorrida de hoy" : dayOffset < 0 ? `Hace ${Math.abs(dayOffset)} día${Math.abs(dayOffset) > 1 ? "s" : ""}` : `En ${dayOffset} día${dayOffset > 1 ? "s" : ""}`;
 
-  // Match calendar events to clients by name similarity
-  const matched = events.map(evt => {
-    const client = clients.find(c =>
-      c.name.toLowerCase().includes(evt.title?.toLowerCase()?.split(" ")[0] || "") ||
-      evt.title?.toLowerCase()?.includes(c.name.toLowerCase().split(" ")[0] || "")
-    );
-    return { ...evt, client };
-  });
+  // Match calendar events to clients by name similarity, y nos quedamos solo con los que matchean
+  const matched = events
+    .map(evt => {
+      const title = (evt.title || "").toLowerCase();
+      const client = clients.find(c => {
+        const name = c.name.toLowerCase();
+        // Compara por palabras significativas (>=3 letras) en común
+        const nameWords = name.split(/\s+/).filter(w => w.length >= 3);
+        return nameWords.some(w => title.includes(w)) || title.split(/\s+/).some(w => w.length >= 3 && name.includes(w));
+      });
+      return { ...evt, client };
+    })
+    .filter(evt => evt.client); // solo visitas a clientes reconocidos
 
   if (showNewVisitForm) {
     return <ScheduleVisitForm clients={clients} initialDate={viewedDate} onClose={() => setShowNewVisitForm(false)} onSaved={() => { setShowNewVisitForm(false); loadEvents(); }} />;
@@ -407,7 +412,7 @@ function TodayTab({ clients, onClientSelect }) {
         <div style={{ textAlign: "center", padding: 40, color: "#4A6B4C" }}>
           <div style={{ fontSize: 13 }}>Cargando calendario…</div>
         </div>
-      ) : events.length === 0 ? (
+      ) : matched.length === 0 ? (
         <div style={{ background: "#1E2E1F", borderRadius: 12, padding: 20, textAlign: "center" }}>
           <div style={{ fontSize: 13, color: "#4A6B4C" }}>No hay visitas agendadas</div>
         </div>
