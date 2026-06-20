@@ -358,7 +358,8 @@ function TodayTab({ clients, onClientSelect }) {
   const dayLabel = dayOffset === 0 ? "Recorrida de hoy" : dayOffset < 0 ? `Hace ${Math.abs(dayOffset)} día${Math.abs(dayOffset) > 1 ? "s" : ""}` : `En ${dayOffset} día${dayOffset > 1 ? "s" : ""}`;
 
   // Solo se considera "visita" si el título del evento incluye alguna palabra clave
-  // (grow, cliente, distribuidor, mayorista, ong, club). Recién ahí buscamos el cliente por nombre.
+  // (grow, cliente, distribuidor, mayorista, ong, club). Recién ahí buscamos el cliente
+  // que comparta la MAYOR CANTIDAD de palabras (no solo la primera coincidencia)
   const VISIT_KEYWORDS = ["grow", "cliente", "distribuidor", "mayorista", "ong", "club"];
   const matched = events
     .filter(evt => {
@@ -367,11 +368,14 @@ function TodayTab({ clients, onClientSelect }) {
     })
     .map(evt => {
       const titleWords = (evt.title || "").toLowerCase().split(/\s+/).map(w => w.replace(/[^\wáéíóúñ]/g, "")).filter(w => w.length >= 4);
-      const client = clients.find(c => {
+      let bestClient = null;
+      let bestScore = 0;
+      for (const c of clients) {
         const nameWords = c.name.toLowerCase().split(/\s+/).map(w => w.replace(/[^\wáéíóúñ]/g, "")).filter(w => w.length >= 4);
-        return nameWords.some(nw => titleWords.includes(nw));
-      });
-      return { ...evt, client };
+        const score = nameWords.filter(nw => titleWords.includes(nw)).length;
+        if (score > bestScore) { bestScore = score; bestClient = c; }
+      }
+      return { ...evt, client: bestScore > 0 ? bestClient : null };
     })
     .filter(evt => evt.client); // solo si encontramos el cliente exacto
 
