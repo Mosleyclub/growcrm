@@ -379,14 +379,19 @@ function TodayTab({ clients, onClientSelect }) {
     })
     .filter(evt => evt.client); // solo si encontramos el cliente exacto
 
-  // Construye un link de Google Maps con todas las paradas del dia en orden
-  const stopsWithAddress = matched.filter(evt => evt.client.address && !/^https?:\/\//i.test(evt.client.address.trim()));
+  // Construye un link de Google Maps con todas las paradas del dia en orden.
+  // Si la dirección es un link de Maps (no texto), usamos el nombre del cliente como query.
+  const stopsWithAddress = matched.filter(evt => evt.client.address);
   function getRouteUrl() {
-    const addresses = stopsWithAddress.map(evt => encodeURIComponent(evt.client.address));
-    if (addresses.length === 0) return null;
-    if (addresses.length === 1) return `https://maps.google.com/?q=${addresses[0]}`;
-    const destination = addresses[addresses.length - 1];
-    const waypoints = addresses.slice(0, -1).join("|");
+    const queries = stopsWithAddress.map(evt => {
+      const addr = evt.client.address.trim();
+      const isLink = /^https?:\/\//i.test(addr);
+      return encodeURIComponent(isLink ? evt.client.name : addr);
+    });
+    if (queries.length === 0) return null;
+    if (queries.length === 1) return `https://maps.google.com/?q=${queries[0]}`;
+    const destination = queries[queries.length - 1];
+    const waypoints = queries.slice(0, -1).join("|");
     return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
   }
 
