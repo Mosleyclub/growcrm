@@ -232,7 +232,7 @@ function ScheduleVisitForm({ clients, initialDate, onClose, onSaved }) {
     const start = new Date(`${date}T${time}:00`);
     const end = new Date(start.getTime() + duration * 60000);
     const result = await createCalendarEvent({
-      title: `Visita: ${selectedClient.name}`,
+      title: `Visita ${TYPE_LABEL[selectedClient.type] || "Grow"}: ${selectedClient.name}`,
       description: notes,
       location: selectedClient.address || "",
       startDateTime: start.toISOString(),
@@ -357,19 +357,24 @@ function TodayTab({ clients, onClientSelect }) {
   const dateStr = viewedDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
   const dayLabel = dayOffset === 0 ? "Recorrida de hoy" : dayOffset < 0 ? `Hace ${Math.abs(dayOffset)} día${Math.abs(dayOffset) > 1 ? "s" : ""}` : `En ${dayOffset} día${dayOffset > 1 ? "s" : ""}`;
 
-  // Match calendar events to clients by name similarity, y nos quedamos solo con los que matchean
+  // Solo se considera "visita" si el título del evento incluye alguna palabra clave
+  // (grow, cliente, distribuidor, mayorista, ong, club). Recién ahí buscamos el cliente por nombre.
+  const VISIT_KEYWORDS = ["grow", "cliente", "distribuidor", "mayorista", "ong", "club"];
   const matched = events
-    .map(evt => {
+    .filter(evt => {
       const title = (evt.title || "").toLowerCase();
+      return VISIT_KEYWORDS.some(kw => title.includes(kw));
+    })
+    .map(evt => {
+      const titleWords = (evt.title || "").toLowerCase().split(/\s+/).map(w => w.replace(/[^\wáéíóúñ]/g, "")).filter(w => w.length >= 4);
       const client = clients.find(c => {
-        const name = c.name.toLowerCase();
-        // Compara por palabras significativas (>=3 letras) en común
-        const nameWords = name.split(/\s+/).filter(w => w.length >= 3);
-        return nameWords.some(w => title.includes(w)) || title.split(/\s+/).some(w => w.length >= 3 && name.includes(w));
+        const nameWords = c.name.toLowerCase().split(/\s+/).map(w => w.replace(/[^\wáéíóúñ]/g, "")).filter(w => w.length >= 4);
+        return nameWords.some(nw => titleWords.includes(nw));
       });
       return { ...evt, client };
     })
-    .filter(evt => evt.client); // solo visitas a clientes reconocidos
+    .filter(evt => evt.client); // solo si encontramos el cliente exacto
+
 
   if (showNewVisitForm) {
     return <ScheduleVisitForm clients={clients} initialDate={viewedDate} onClose={() => setShowNewVisitForm(false)} onSaved={() => { setShowNewVisitForm(false); loadEvents(); }} />;
