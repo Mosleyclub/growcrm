@@ -379,6 +379,16 @@ function TodayTab({ clients, onClientSelect }) {
     })
     .filter(evt => evt.client); // solo si encontramos el cliente exacto
 
+  // Construye un link de Google Maps con todas las paradas del dia en orden
+  const stopsWithAddress = matched.filter(evt => evt.client.address && !/^https?:\/\//i.test(evt.client.address.trim()));
+  function getRouteUrl() {
+    const addresses = stopsWithAddress.map(evt => encodeURIComponent(evt.client.address));
+    if (addresses.length === 0) return null;
+    if (addresses.length === 1) return `https://maps.google.com/?q=${addresses[0]}`;
+    const destination = addresses[addresses.length - 1];
+    const waypoints = addresses.slice(0, -1).join("|");
+    return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+  }
 
   if (showNewVisitForm) {
     return <ScheduleVisitForm clients={clients} initialDate={viewedDate} onClose={() => setShowNewVisitForm(false)} onSaved={() => { setShowNewVisitForm(false); loadEvents(); }} />;
@@ -398,6 +408,14 @@ function TodayTab({ clients, onClientSelect }) {
           </button>
         )}
       </div>
+
+      {stopsWithAddress.length >= 2 && (
+        <a href={getRouteUrl()} target="_blank" rel="noreferrer"
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#0A2A10", border: "1px solid #7AE84A", borderRadius: 10, padding: "11px 0", color: "#7AE84A", fontSize: 13, fontWeight: 700, textDecoration: "none", marginBottom: 16 }}>
+          <Icon d={ICONS.map} size={16} /> Ver recorrido completo ({stopsWithAddress.length} paradas)
+        </a>
+      )}
+
 
       {/* Day navigator */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
