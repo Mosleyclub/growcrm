@@ -595,7 +595,31 @@ function VisitForm({ client, onSave, onClose }) {
 }
 
 // ─── CLIENT DETAIL ───────────────────────────────────────────────────────────
-function ClientDetail({ client, onBack, onUpdate }) {
+function calcularDistanciaKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados = 3, maxDistanciaKm = 2) {
+  if (!clienteActual.lat || !clienteActual.lng) return [];
+  return todosLosClientes
+    .filter(c => c.id !== clienteActual.id && c.lat && c.lng)
+    .map(c => ({ ...c, distanciaKm: calcularDistanciaKm(clienteActual.lat, clienteActual.lng, c.lat, c.lng) }))
+    .filter(c => c.distanciaKm <= maxDistanciaKm)
+    .sort((a, b) => a.distanciaKm - b.distanciaKm)
+    .slice(0, maxResultados);
+}
+
+function ClientDetail({ client, onBack, onUpdate, allClients }) {
+  const [showNearby, setShowNearby] = useState(false);
+  const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
   const [showVisitForm, setShowVisitForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressInput, setAddressInput] = useState(client.address || "");
@@ -663,7 +687,40 @@ function ClientDetail({ client, onBack, onUpdate }) {
             <Icon d={ICONS.plus} size={16} color="#0D1F0F" /> Visita
           </button>
         </div>
+
+        {client.lat && client.lng && (
+          <button onClick={() => setShowNearby(true)}
+            style={{ width: "100%", marginTop: 8, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
+            <Icon d={ICONS.map} size={14} /> Ver cercanos
+          </button>
+        )}
       </div>
+
+      {showNearby && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "flex-end" }} onClick={() => setShowNearby(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#1E2E1F", borderRadius: "16px 16px 0 0", padding: "20px 16px 32px", width: "100%", maxWidth: 430, margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>Clientes cercanos</div>
+              <button onClick={() => setShowNearby(false)} style={{ background: "none", border: "none", color: "#4A6B4C", fontSize: 18, cursor: "pointer" }}>×</button>
+            </div>
+            {nearbyClients.length === 0 ? (
+              <div style={{ fontSize: 13, color: "#4A6B4C", textAlign: "center", padding: 20 }}>No hay otros clientes con ubicación cercana</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {nearbyClients.map(c => (
+                  <div key={c.id} style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{c.name}</div>
+                      <div style={{ fontSize: 11, color: "#4A6B4C", marginTop: 2 }}>{c.distanciaKm.toFixed(1)} km</div>
+                    </div>
+                    <ThermoBadge status={c.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: "20px 16px 100px" }}>
         {/* General notes */}
@@ -991,6 +1048,7 @@ export default function GrowCRM() {
           client={selectedClient}
           onBack={() => setSelectedClient(null)}
           onUpdate={updateClient}
+          allClients={clients}
         />
       )}
       {showClientForm && (
