@@ -381,9 +381,41 @@ function TodayTab({ clients, onClientSelect }) {
 
   // Construye un link de Google Maps con todas las paradas del dia en orden.
   // Si la dirección es un link de Maps (no texto), usamos el nombre del cliente como query.
-  const stopsWithAddress = matched.filter(evt => evt.client.address);
+ const stopsWithAddress = matched.filter(evt => evt.client.address);
+
+  // Reordena las paradas por cercanía (vecino más cercano), usando lat/lng.
+  // Las que no tengan coordenadas quedan al final, en su orden original.
+  function ordenarPorCercania(stops) {
+    const conCoords = stops.filter(evt => evt.client.lat && evt.client.lng);
+    const sinCoords = stops.filter(evt => !evt.client.lat || !evt.client.lng);
+
+    if (conCoords.length <= 1) return [...conCoords, ...sinCoords];
+
+    const ordenadas = [conCoords[0]];
+    const restantes = conCoords.slice(1);
+
+    while (restantes.length > 0) {
+      const actual = ordenadas[ordenadas.length - 1];
+      let mejorIdx = 0;
+      let mejorDist = Infinity;
+      restantes.forEach((evt, idx) => {
+        const d = calcularDistanciaKm(actual.client.lat, actual.client.lng, evt.client.lat, evt.client.lng);
+        if (d < mejorDist) { mejorDist = d; mejorIdx = idx; }
+      });
+      ordenadas.push(restantes[mejorIdx]);
+      restantes.splice(mejorIdx, 1);
+    }
+
+    return [...ordenadas, ...sinCoords];
+  }
+
+  const stopsOrdenadas = ordenarPorCercania(stopsWithAddress);
+
   function getRouteUrl() {
-    const queries = stopsWithAddress.map(evt => {
+    const queries = stopsOrdenadas.map(evt => {
+      if (evt.client.lat && evt.client.lng) {
+        return `${evt.client.lat},${evt.client.lng}`;
+      }
       const addr = evt.client.address.trim();
       const isLink = /^https?:\/\//i.test(addr);
       return encodeURIComponent(isLink ? evt.client.name : addr);
@@ -394,7 +426,6 @@ function TodayTab({ clients, onClientSelect }) {
     const waypoints = queries.slice(0, -1).join("|");
     return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
   }
-
   if (showNewVisitForm) {
     return <ScheduleVisitForm clients={clients} initialDate={viewedDate} onClose={() => setShowNewVisitForm(false)} onSaved={() => { setShowNewVisitForm(false); loadEvents(); }} />;
   }
