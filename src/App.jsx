@@ -413,9 +413,6 @@ function TodayTab({ clients, onClientSelect }) {
 
   function getRouteUrl() {
     const queries = stopsOrdenadas.map(evt => {
-      if (evt.client.lat && evt.client.lng) {
-        return `${evt.client.lat},${evt.client.lng}`;
-      }
       const addr = evt.client.address.trim();
       const isLink = /^https?:\/\//i.test(addr);
       return encodeURIComponent(isLink ? evt.client.name : addr);
