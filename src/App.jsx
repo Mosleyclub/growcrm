@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { db, auth } from "./firebase";
-import { collection, onSnapshot, doc, setDoc, writeBatch } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 
 // ─── GOOGLE CALENDAR INTEGRATION (OAuth real) ──────────────────────────────
@@ -116,8 +116,6 @@ const TYPE_LABEL = {
 };
 
 // ─── FIRESTORE SYNC ─────────────────────────────────────────────────────────
-// Lee la colección "clients" en tiempo real. Si está vacía, la carga con los
-// 743 clientes iniciales (solo pasa una vez, la primera vez que alguien abre la app).
 function useFirestoreClients() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -127,7 +125,6 @@ function useFirestoreClients() {
     const unsub = onSnapshot(collection(db, "clients"), async (snapshot) => {
       if (snapshot.empty && !seedingRef.current) {
         seedingRef.current = true;
-        // Primera vez: cargar los clientes iniciales desde clients_data.json
         try {
           const res = await fetch("/clients_data.json");
           const initialClients = await res.json();
@@ -156,7 +153,6 @@ function useFirestoreClients() {
       console.error("Error updating client:", e);
     }
   }
-
   async function addClient(client) {
     try {
       await setDoc(doc(db, "clients", String(client.id)), client);
@@ -165,7 +161,15 @@ function useFirestoreClients() {
     }
   }
 
-  return { clients, loading, updateClient, addClient };
+  async function deleteClient(clientId) {
+    try {
+      await deleteDoc(doc(db, "clients", String(clientId)));
+    } catch (e) {
+      console.error("Error deleting client:", e);
+    }
+  }
+
+  return { clients, loading, updateClient, addClient, deleteClient };
 }
 
 // ─── ICONS ──────────────────────────────────────────────────────────────────
@@ -189,12 +193,49 @@ const ICONS = {
   thermo:   "M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z",
 };
 
-
 // Detecta si una direccion guardada es en realidad un link de Maps
 function getMapsUrl(address, fallbackName) {
   if (!address) return `https://maps.google.com/?q=${encodeURIComponent(fallbackName)}`;
   const isLink = /^https?:\/\//i.test(address.trim());
   return isLink ? address.trim() : `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+}
+
+// ─── NOMBRE / MATCHING DE CLIENTES (única fuente de verdad) ────────────────
+function normalizeForMatch(str) {
+  return (str || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/growshop/g, "grow")
+    .replace(/grow shop/g, "grow")
+    .replace(/[^a-z0-9 ]/g, "");
+}
+
+function wordsOf(str) {
+  return normalizeForMatch(str).split(/\s+/).filter(w => w.length >= 3);
+}
+
+function compactOf(str) {
+  return normalizeForMatch(str).replace(/\s+/g, "");
+}
+
+function getMatchedClient(title, clients) {
+  const titleWords = wordsOf(title);
+  const titleCompact = compactOf(title);
+  let bestClient = null;
+  let bestScore = 0;
+
+  for (const c of clients) {
+    const nameWords = wordsOf(c.name);
+    const nameCompact = compactOf(c.name);
+    if (!nameWords.length) continue;
+
+    const wordScore = nameWords.filter(w => titleWords.includes(w)).length;
+    const compactMatch = nameCompact.length >= 5 && titleCompact.includes(nameCompact);
+    const score = wordScore * 10 + (compactMatch ? nameCompact.length : 0);
+
+    if (score > bestScore) { bestScore = score; bestClient = c; }
+  }
+  return bestScore > 0 ? bestClient : null;
 }
 
 // ─── THERMOMETER STATUS ──────────────────────────────────────────────────────
@@ -211,8 +252,6 @@ function ThermoBadge({ status }) {
     </div>
   );
 }
-
-// ─── TODAY TAB ───────────────────────────────────────────────────────────────
 
 // ─── SCHEDULE VISIT (crear evento en Google Calendar) ──────────────────────
 function ScheduleVisitForm({ clients, initialDate, onClose, onSaved }) {
@@ -324,7 +363,7 @@ function TodayTab({ clients, onClientSelect }) {
   const [loading, setLoading] = useState(true);
   const [needsAuth, setNeedsAuth] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [dayOffset, setDayOffset] = useState(0); // 0 = hoy, -1 = ayer, +1 = mañana
+  const [dayOffset, setDayOffset] = useState(0);
   const [showNewVisitForm, setShowNewVisitForm] = useState(false);
 
   const viewedDate = new Date();
@@ -357,34 +396,18 @@ function TodayTab({ clients, onClientSelect }) {
   const dateStr = viewedDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
   const dayLabel = dayOffset === 0 ? "Recorrida de hoy" : dayOffset < 0 ? `Hace ${Math.abs(dayOffset)} día${Math.abs(dayOffset) > 1 ? "s" : ""}` : `En ${dayOffset} día${dayOffset > 1 ? "s" : ""}`;
 
-  // Solo se considera "visita" si el título del evento incluye alguna palabra clave
-  // (grow, cliente, distribuidor, mayorista, ong, club). Recién ahí buscamos el cliente
-  // que comparta la MAYOR CANTIDAD de palabras (no solo la primera coincidencia)
   const VISIT_KEYWORDS = ["grow", "cliente", "distribuidor", "mayorista", "ong", "club"];
+
   const matched = events
     .filter(evt => {
       const title = (evt.title || "").toLowerCase();
       return VISIT_KEYWORDS.some(kw => title.includes(kw));
     })
-    .map(evt => {
-      const titleWords = (evt.title || "").toLowerCase().split(/\s+/).map(w => w.replace(/[^\wáéíóúñ]/g, "")).filter(w => w.length >= 4);
-      let bestClient = null;
-      let bestScore = 0;
-      for (const c of clients) {
-        const nameWords = c.name.toLowerCase().split(/\s+/).map(w => w.replace(/[^\wáéíóúñ]/g, "")).filter(w => w.length >= 4);
-        const score = nameWords.filter(nw => titleWords.includes(nw)).length;
-        if (score > bestScore) { bestScore = score; bestClient = c; }
-      }
-      return { ...evt, client: bestScore > 0 ? bestClient : null };
-    })
-    .filter(evt => evt.client); // solo si encontramos el cliente exacto
+    .map(evt => ({ ...evt, client: getMatchedClient(evt.title, clients) }))
+    .filter(evt => evt.client);
 
-  // Construye un link de Google Maps con todas las paradas del dia en orden.
-  // Si la dirección es un link de Maps (no texto), usamos el nombre del cliente como query.
- const stopsWithAddress = matched.filter(evt => evt.client.address);
+  const stopsWithAddress = matched.filter(evt => evt.client.address);
 
-  // Reordena las paradas por cercanía (vecino más cercano), usando lat/lng.
-  // Las que no tengan coordenadas quedan al final, en su orden original.
   function ordenarPorCercania(stops) {
     const conCoords = stops.filter(evt => evt.client.lat && evt.client.lng);
     const sinCoords = stops.filter(evt => !evt.client.lat || !evt.client.lng);
@@ -413,9 +436,11 @@ function TodayTab({ clients, onClientSelect }) {
 
   function getRouteUrl() {
     const queries = stopsOrdenadas.map(evt => {
-      const addr = evt.client.address.trim();
+      const c = evt.client;
+      if (c.lat && c.lng) return `${c.lat},${c.lng}`;
+      const addr = c.address.trim();
       const isLink = /^https?:\/\//i.test(addr);
-      return encodeURIComponent(isLink ? evt.client.name : addr);
+      return encodeURIComponent(isLink ? c.name : addr);
     });
     if (queries.length === 0) return null;
     if (queries.length === 1) return `https://maps.google.com/?q=${queries[0]}`;
@@ -449,8 +474,6 @@ function TodayTab({ clients, onClientSelect }) {
         </a>
       )}
 
-
-      {/* Day navigator */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <button onClick={() => setDayOffset(d => d - 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Anterior</button>
         {dayOffset !== 0 && (
@@ -509,7 +532,6 @@ function TodayTab({ clients, onClientSelect }) {
         </div>
       )}
 
-      {/* Quick access to all clients */}
       <div style={{ marginTop: 24 }}>
         <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Clientes activos</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -570,7 +592,6 @@ function VisitForm({ client, onSave, onClose }) {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 100px" }}>
-        {/* Status selector */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Estado del cliente</div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -583,7 +604,6 @@ function VisitForm({ client, onSave, onClose }) {
           </div>
         </div>
 
-        {/* Notes */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Notas de la visita</div>
           <textarea value={notes} onChange={e => setNotes(e.target.value)}
@@ -591,7 +611,6 @@ function VisitForm({ client, onSave, onClose }) {
             style={{ width: "100%", minHeight: 120, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: 14, resize: "none", fontFamily: "inherit", boxSizing: "border-box", outline: "none" }} />
         </div>
 
-        {/* Photos */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Fotos</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -645,12 +664,14 @@ function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados 
     .slice(0, maxResultados);
 }
 
-function ClientDetail({ client, onBack, onUpdate, allClients }) {
+function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
   const [showNearby, setShowNearby] = useState(false);
   const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
   const [showVisitForm, setShowVisitForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressInput, setAddressInput] = useState(client.address || "");
+  const [editingInstagram, setEditingInstagram] = useState(false);
+  const [instagramInput, setInstagramInput] = useState(client.instagram || "");
 
   function handleSaveVisit(visit, newStatus) {
     const updated = {
@@ -667,13 +688,17 @@ function ClientDetail({ client, onBack, onUpdate, allClients }) {
     setEditingAddress(false);
   }
 
+  function handleSaveInstagram() {
+    onUpdate({ ...client, instagram: instagramInput.trim() });
+    setEditingInstagram(false);
+  }
+
   if (showVisitForm) return <VisitForm client={client} onSave={handleSaveVisit} onClose={() => setShowVisitForm(false)} />;
 
   const cfg = STATUS_CONFIG[client.status];
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0D1F0F", zIndex: 100, display: "flex", flexDirection: "column", overflowY: "auto" }}>
-      {/* Header */}
       <div style={{ background: "#1E2E1F", padding: "16px 16px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
           <button onClick={onBack} style={{ background: "none", border: "none", color: "#7AE84A", cursor: "pointer", padding: 4 }}>
@@ -696,11 +721,21 @@ function ClientDetail({ client, onBack, onUpdate, allClients }) {
                 {client.address || "Sin dirección · tocá para agregar"}
               </div>
             )}
+            {editingInstagram ? (
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <input value={instagramInput} onChange={e => setInstagramInput(e.target.value)} placeholder="Pegá el link de Instagram"
+                  style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 12, padding: "6px 8px", fontFamily: "inherit", outline: "none" }} />
+                <button onClick={handleSaveInstagram} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+              </div>
+            ) : (
+              <div onClick={() => setEditingInstagram(true)} style={{ fontSize: 12, color: client.instagram ? "#4A6B4C" : "#FF9A3C", marginTop: 2, cursor: "pointer", textDecoration: client.instagram ? "none" : "underline" }}>
+                {client.instagram || "Sin Instagram · tocá para agregar"}
+              </div>
+            )}
           </div>
           <ThermoBadge status={client.status} />
         </div>
 
-        {/* Action buttons */}
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
           <a href={`https://wa.me/${client.phone}`} target="_blank" rel="noreferrer"
             style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
@@ -716,12 +751,25 @@ function ClientDetail({ client, onBack, onUpdate, allClients }) {
           </button>
         </div>
 
-        {client.lat && client.lng && (
-          <button onClick={() => setShowNearby(true)}
-            style={{ width: "100%", marginTop: 8, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
-            <Icon d={ICONS.map} size={14} /> Ver cercanos
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          {client.lat && client.lng && (
+            <button onClick={() => setShowNearby(true)}
+              style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
+              <Icon d={ICONS.map} size={14} /> Ver cercanos
+            </button>
+          )}
+          {client.instagram && (
+            <a href={client.instagram} target="_blank" rel="noreferrer"
+              style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Icon d={ICONS.camera} size={14} /> Instagram
+            </a>
+          )}
+        </div>
+
+        <button onClick={() => { if (window.confirm(`¿Eliminar a "${client.name}"? Esta acción no se puede deshacer.`)) { onDelete(client.id); onBack(); } }}
+          style={{ width: "100%", marginTop: 8, background: "none", border: "1px solid #4A1A1A", color: "#FF6B6B", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
+          <Icon d={ICONS.trash} size={14} /> Eliminar cliente
+        </button>
       </div>
 
       {showNearby && (
@@ -751,7 +799,6 @@ function ClientDetail({ client, onBack, onUpdate, allClients }) {
       )}
 
       <div style={{ padding: "20px 16px 100px" }}>
-        {/* General notes */}
         {client.notes && (
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Notas generales</div>
@@ -759,7 +806,6 @@ function ClientDetail({ client, onBack, onUpdate, allClients }) {
           </div>
         )}
 
-        {/* Visit history */}
         <div>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
             Historial de visitas {client.visits?.length > 0 && `(${client.visits.length})`}
@@ -864,7 +910,7 @@ function ClientForm({ client, onSave, onClose }) {
 }
 
 // ─── CLIENTS TAB ─────────────────────────────────────────────────────────────
-function ClientsTab({ clients, onClientSelect, onAddClient }) {
+function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
@@ -887,11 +933,9 @@ function ClientsTab({ clients, onClientSelect, onAddClient }) {
         </button>
       </div>
 
-      {/* Search */}
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente…"
         style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "11px 14px", fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
 
-      {/* Filter chips */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
         {[
           { k: "all", label: "Todos" },
@@ -911,13 +955,19 @@ function ClientsTab({ clients, onClientSelect, onAddClient }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {filtered.map(c => (
-          <div key={c.id} onClick={() => onClientSelect(c)}
-            style={{ background: "#1E2E1F", borderRadius: 12, padding: "14px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #1A2A1B" }}>
-            <div style={{ flex: 1, marginRight: 12 }}>
+          <div key={c.id}
+            style={{ background: "#1E2E1F", borderRadius: 12, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #1A2A1B" }}>
+            <div onClick={() => onClientSelect(c)} style={{ flex: 1, marginRight: 12, cursor: "pointer" }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "#F2F5EE" }}>{c.name}</div>
               <div style={{ fontSize: 11, color: "#4A6B4C", marginTop: 2 }}>{TYPE_LABEL[c.type]} · {c.visits?.length || 0} visita{c.visits?.length !== 1 ? "s" : ""}</div>
             </div>
-            <ThermoBadge status={c.status} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <ThermoBadge status={c.status} />
+              <button onClick={() => { if (window.confirm(`¿Eliminar a "${c.name}"? Esta acción no se puede deshacer.`)) onDeleteClient(c.id); }}
+                style={{ background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", padding: 4, display: "flex" }}>
+                <Icon d={ICONS.trash} size={16} />
+              </button>
+            </div>
           </div>
         ))}
         {filtered.length === 0 && (
@@ -929,8 +979,6 @@ function ClientsTab({ clients, onClientSelect, onAddClient }) {
     </div>
   );
 }
-
-// ─── MAIN APP ────────────────────────────────────────────────────────────────
 
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
@@ -974,8 +1022,8 @@ function LoginScreen({ onLogin }) {
 }
 
 export default function GrowCRM() {
-  const [user, setUser] = useState(undefined); // undefined = checking, null = logged out, object = logged in
-  const { clients, loading, updateClient: fsUpdateClient, addClient: fsAddClient } = useFirestoreClients();
+  const [user, setUser] = useState(undefined);
+  const { clients, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient } = useFirestoreClients();
   const [tab, setTab] = useState("today");
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientForm, setShowClientForm] = useState(false);
@@ -986,7 +1034,6 @@ export default function GrowCRM() {
     return () => unsub();
   }, []);
 
-  // Mantiene selectedClient sincronizado con los datos frescos de Firestore
   useEffect(() => {
     if (selectedClient) {
       const fresh = clients.find(c => c.id === selectedClient.id);
@@ -1037,10 +1084,8 @@ export default function GrowCRM() {
 
       <div style={{ background: "#0D1F0F", minHeight: "100vh", maxWidth: 430, margin: "0 auto", fontFamily: "'Space Grotesk', sans-serif", position: "relative" }}>
 
-        {/* Status bar spacer */}
         <div style={{ height: 44, background: "#0D1F0F" }} />
 
-        {/* Brand header */}
         <div style={{ padding: "0 16px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#7AE84A" }} />
@@ -1049,13 +1094,11 @@ export default function GrowCRM() {
           <button onClick={() => signOut(auth)} style={{ background: "none", border: "none", color: "#2E4A30", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Salir</button>
         </div>
 
-        {/* Content */}
         <div style={{ paddingBottom: 0 }}>
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
-          {tab === "clients" && <ClientsTab clients={clients} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} />}
+          {tab === "clients" && <ClientsTab clients={clients} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} />}
         </div>
 
-        {/* Bottom nav */}
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#0D1F0F", borderTop: "1px solid #1E2E1F", display: "flex", zIndex: 50 }}>
           {[
             { key: "today", label: "Hoy", icon: ICONS.calendar },
@@ -1070,13 +1113,13 @@ export default function GrowCRM() {
         </div>
       </div>
 
-      {/* Overlays */}
       {selectedClient && (
         <ClientDetail
           client={selectedClient}
           onBack={() => setSelectedClient(null)}
           onUpdate={updateClient}
           allClients={clients}
+          onDelete={deleteClient}
         />
       )}
       {showClientForm && (
