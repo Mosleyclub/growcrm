@@ -6,6 +6,11 @@ import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebas
 // ─── GOOGLE CALENDAR INTEGRATION (OAuth real) ──────────────────────────────
 const GOOGLE_CLIENT_ID = "382190286267-tr23lvv8bug5540csvmaffv296ck4vbt.apps.googleusercontent.com";
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
+const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+const GOOGLE_SCOPES = `${CALENDAR_SCOPE} ${SHEETS_SCOPE}`;
+const SPREADSHEET_ID = "1_pCk2xvsZBbvQZOqmSSbPT3kbVn7g0SqYCBzh1A1Z2s";
+const SHEET_RANGE = "A:I";
+const SHEET_HEADERS = ["id", "nombre", "telefono", "direccion", "tipo", "estado", "instagram", "notas", "ultima_modificacion"];
 
 let gTokenClient = null;
 let gAccessToken = null;
@@ -25,7 +30,7 @@ async function connectGoogleCalendar() {
   return new Promise((resolve, reject) => {
     gTokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
-      scope: CALENDAR_SCOPE,
+      scope: GOOGLE_SCOPES,
       callback: (resp) => {
         if (resp.error) return reject(resp);
         gAccessToken = resp.access_token;
@@ -98,6 +103,78 @@ async function createCalendarEvent({ title, description, location, startDateTime
   } catch (e) {
     return { error: e.message };
   }
+}
+
+// ─── GOOGLE SHEETS SYNC ─────────────────────────────────────────────────────
+async function fetchSheetRows() {
+  const token = gAccessToken || getStoredGoogleToken();
+  if (!token) return { needsAuth: true, rows: [] };
+  try {
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_RANGE}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.status === 401 || res.status === 403) {
+      return { needsAuth: true, rows: [] };
+    }
+    const data = await res.json();
+    return { needsAuth: false, rows: data.values || [] };
+  } catch {
+    return { needsAuth: false, rows: [] };
+  }
+}
+
+async function writeSheetRows(rows) {
+  const token = gAccessToken || getStoredGoogleToken();
+  if (!token) return { error: "needsAuth" };
+  try {
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_RANGE}:clear`,
+      { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+    );
+    const res = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/A1?valueInputOption=RAW`,
+      {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ values: rows }),
+      }
+    );
+    return await res.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+function clientToRow(c) {
+  return [
+    String(c.id ?? ""),
+    c.name ?? "",
+    c.phone ?? "",
+    c.address ?? "",
+    c.type ?? "",
+    c.status ?? "",
+    c.instagram ?? "",
+    c.notes ?? "",
+    String(c.lastModified ?? ""),
+  ];
+}
+
+function rowToClient(row) {
+  const [id, name, phone, address, type, status, instagram, notes, lastModified] = row;
+  if (!id || !name) return null;
+  return {
+    id: Number(id),
+    name: name || "",
+    phone: phone || "",
+    address: address || "",
+    type: type || "grow_shop",
+    status: status || "cold",
+    instagram: instagram || "",
+    notes: notes || "",
+    lastModified: Number(lastModified) || 0,
+    visits: [],
+  };
 }
 
 // ─── MOCK DATA (fallback / demo) ────────────────────────────────────────────
@@ -436,11 +513,9 @@ function TodayTab({ clients, onClientSelect }) {
 
   function getRouteUrl() {
     const queries = stopsOrdenadas.map(evt => {
-      const c = evt.client;
-      if (c.lat && c.lng) return `${c.lat},${c.lng}`;
-      const addr = c.address.trim();
+      const addr = evt.client.address.trim();
       const isLink = /^https?:\/\//i.test(addr);
-      return encodeURIComponent(isLink ? c.name : addr);
+      return encodeURIComponent(isLink ? evt.client.name : addr);
     });
     if (queries.length === 0) return null;
     if (queries.length === 1) return `https://maps.google.com/?q=${queries[0]}`;
@@ -910,9 +985,102 @@ function ClientForm({ client, onSave, onClose }) {
 }
 
 // ─── CLIENTS TAB ─────────────────────────────────────────────────────────────
-function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient }) {
+function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawAddClient, rawUpdateClient }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+
+  async function handleSyncSheets() {
+    setSyncing(true);
+    setSyncMsg("Conectando...");
+
+    let token = gAccessToken || getStoredGoogleToken();
+    if (!token) {
+      try {
+        token = await connectGoogleCalendar();
+      } catch {
+        setSyncing(false);
+        setSyncMsg("No se pudo conectar con Google.");
+        setTimeout(() => setSyncMsg(""), 4000);
+        return;
+      }
+    }
+
+    setSyncMsg("Leyendo planilla...");
+    const { needsAuth, rows } = await fetchSheetRows();
+    if (needsAuth) {
+      setSyncing(false);
+      setSyncMsg("Necesitás reconectar Google (falta el permiso de Sheets). Salí y volvé a entrar a Google Calendar.");
+      setTimeout(() => setSyncMsg(""), 6000);
+      return;
+    }
+
+    const dataRows = rows.slice(1);
+    const sheetClients = dataRows.map(rowToClient).filter(Boolean);
+    const sheetMap = new Map(sheetClients.map(c => [c.id, c]));
+    const localMap = new Map(clients.map(c => [c.id, c]));
+    const isSheetEmpty = sheetClients.length === 0;
+
+    setSyncMsg("Comparando datos...");
+
+    function fieldsDiffer(a, b) {
+      const fields = ["name", "phone", "address", "type", "status", "instagram", "notes"];
+      return fields.some(f => (a[f] || "") !== (b[f] || ""));
+    }
+
+    let actualizados = 0;
+    for (const [id, localC] of localMap) {
+      const sheetC = sheetMap.get(id);
+      if (sheetC && fieldsDiffer(localC, sheetC)) {
+        const localTime = localC.lastModified || 0;
+        const sheetTime = sheetC.lastModified || 0;
+        if (sheetTime >= localTime) {
+          await rawUpdateClient({ ...localC, ...sheetC, visits: localC.visits || [] });
+          actualizados++;
+        }
+      }
+    }
+
+    for (const [id, sheetC] of sheetMap) {
+      if (!localMap.has(id)) {
+        await rawAddClient(sheetC);
+      }
+    }
+
+    if (!isSheetEmpty) {
+      const toDelete = [...localMap.values()].filter(c => !sheetMap.has(c.id));
+      if (toDelete.length > 0) {
+        const nombres = toDelete.map(c => c.name).join(", ");
+        const confirmar = window.confirm(
+          `Estos clientes ya no están en la planilla:\n\n${nombres}\n\n¿Confirmás eliminarlos también de la app?`
+        );
+        if (confirmar) {
+          for (const c of toDelete) await onDeleteClient(c.id);
+          for (const c of toDelete) localMap.delete(c.id);
+        }
+      }
+    }
+
+    setSyncMsg("Actualizando planilla...");
+    const finalMap = new Map(localMap);
+    for (const [id, sheetC] of sheetMap) {
+      if (!finalMap.has(id)) finalMap.set(id, sheetC);
+      else {
+        const localC = finalMap.get(id);
+        if ((sheetC.lastModified || 0) >= (localC.lastModified || 0)) {
+          finalMap.set(id, { ...localC, ...sheetC });
+        }
+      }
+    }
+    const finalClients = [...finalMap.values()];
+    const rowsToWrite = [SHEET_HEADERS, ...finalClients.map(clientToRow)];
+    await writeSheetRows(rowsToWrite);
+
+    setSyncing(false);
+    setSyncMsg(`¡Sincronizado! (${finalClients.length} clientes, ${actualizados} actualizados)`);
+    setTimeout(() => setSyncMsg(""), 4000);
+  }
 
   const filtered = clients.filter(c => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase());
@@ -932,6 +1100,20 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient }) {
           <Icon d={ICONS.plus} size={16} color="#0D1F0F" /> Nuevo
         </button>
       </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button onClick={handleSyncSheets} disabled={syncing}
+          style={{ flex: 1, background: "#1E2E1F", border: "1px solid #7AE84A", borderRadius: 10, padding: "10px 0", color: "#7AE84A", fontSize: 13, fontWeight: 700, cursor: syncing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
+          <Icon d={ICONS.check} size={14} /> {syncing ? "Sincronizando..." : "Sincronizar con Sheets"}
+        </button>
+        <a href={`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`} target="_blank" rel="noreferrer"
+          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 14px", color: "#4A6B4C", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          Abrir planilla
+        </a>
+      </div>
+      {syncMsg && (
+        <div style={{ fontSize: 12, color: "#7AE84A", marginBottom: 12, textAlign: "center" }}>{syncMsg}</div>
+      )}
 
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente…"
         style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "11px 14px", fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
@@ -1042,12 +1224,13 @@ export default function GrowCRM() {
   }, [clients]);
 
   function updateClient(updated) {
-    fsUpdateClient(updated);
-    setSelectedClient(updated);
+    const stamped = { ...updated, lastModified: Date.now() };
+    fsUpdateClient(stamped);
+    setSelectedClient(stamped);
   }
 
   function addClient(form) {
-    const newClient = { ...form, id: Date.now(), visits: [] };
+    const newClient = { ...form, id: Date.now(), visits: [], lastModified: Date.now() };
     fsAddClient(newClient);
     setShowClientForm(false);
   }
@@ -1096,7 +1279,7 @@ export default function GrowCRM() {
 
         <div style={{ paddingBottom: 0 }}>
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
-          {tab === "clients" && <ClientsTab clients={clients} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} />}
+          {tab === "clients" && <ClientsTab clients={clients} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
         </div>
 
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#0D1F0F", borderTop: "1px solid #1E2E1F", display: "flex", zIndex: 50 }}>
