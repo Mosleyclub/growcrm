@@ -760,7 +760,7 @@ function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados 
     .slice(0, maxResultados);
 }
 
-function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onClientSelect }) {
+function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
   const [showNearby, setShowNearby] = useState(false);
   const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
   const [showVisitForm, setShowVisitForm] = useState(false);
@@ -768,6 +768,8 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onClient
   const [addressInput, setAddressInput] = useState(client.address || "");
   const [editingInstagram, setEditingInstagram] = useState(false);
   const [instagramInput, setInstagramInput] = useState(client.instagram || "");
+  const [editingEncargado, setEditingEncargado] = useState(false);
+  const [encargadoInput, setEncargadoInput] = useState(client.encargado || "");
 
   function handleSaveVisit(visit, newStatus) {
     const updated = {
@@ -787,6 +789,11 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onClient
   function handleSaveInstagram() {
     onUpdate({ ...client, instagram: instagramInput.trim() });
     setEditingInstagram(false);
+  }
+
+  function handleSaveEncargado() {
+    onUpdate({ ...client, encargado: encargadoInput.trim() });
+    setEditingEncargado(false);
   }
 
   if (showVisitForm) return <VisitForm client={client} onSave={handleSaveVisit} onClose={() => setShowVisitForm(false)} />;
@@ -826,6 +833,17 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onClient
             ) : (
               <div onClick={() => setEditingInstagram(true)} style={{ fontSize: 12, color: client.instagram ? "#4A6B4C" : "#FF9A3C", marginTop: 2, cursor: "pointer", textDecoration: client.instagram ? "none" : "underline" }}>
                 {client.instagram || "Sin Instagram · tocá para agregar"}
+              </div>
+            )}
+            {editingEncargado ? (
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <input value={encargadoInput} onChange={e => setEncargadoInput(e.target.value)} placeholder="Nombre del encargado o contacto"
+                  style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 12, padding: "6px 8px", fontFamily: "inherit", outline: "none" }} />
+                <button onClick={handleSaveEncargado} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+              </div>
+            ) : (
+              <div onClick={() => setEditingEncargado(true)} style={{ fontSize: 12, color: client.encargado ? "#4A6B4C" : "#FF9A3C", marginTop: 2, cursor: "pointer", textDecoration: client.encargado ? "none" : "underline" }}>
+                {client.encargado || "Sin encargado · tocá para agregar"}
               </div>
             )}
           </div>
@@ -880,8 +898,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onClient
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {nearbyClients.map(c => (
-                  <div key={c.id} onClick={() => { setShowNearby(false); onBack(); setTimeout(() => onClientSelect(c), 50); }}
-                style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+                  <div key={c.id} style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{c.name}</div>
                       <div style={{ fontSize: 11, color: "#4A6B4C", marginTop: 2 }}>{c.distanciaKm.toFixed(1)} km</div>
@@ -1347,7 +1364,6 @@ export default function GrowCRM() {
           onUpdate={updateClient}
           allClients={clients}
           onDelete={deleteClient}
-          onClientSelect={setSelectedClient}
         />
       )}
       {showClientForm && (
