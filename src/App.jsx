@@ -11,6 +11,27 @@ const GOOGLE_SCOPES = `${CALENDAR_SCOPE} ${SHEETS_SCOPE}`;
 const SPREADSHEET_ID = "1_pCk2xvsZBbvQZOqmSSbPT3kbVn7g0SqYCBzh1A1Z2s";
 const SHEET_RANGE = "A:I";
 const SHEET_HEADERS = ["id", "nombre", "telefono", "direccion", "tipo", "estado", "instagram", "notas", "ultima_modificacion"];
+const GEOCODING_API_KEY = "AIzaSyCKieIR_467GcFB3pDXLyDac_bp6lsnpFk";
+
+// Geocodifica una dirección de texto (no links de Maps) usando Google Geocoding API
+async function geocodeAddress(address) {
+  if (!address) return null;
+  const isLink = /^https?:\/\//i.test(address.trim());
+  if (isLink) return null; // los links de Maps no se geocodifican por texto
+  try {
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GEOCODING_API_KEY}`
+    );
+    const data = await res.json();
+    if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
+      const { lat, lng } = data.results[0].geometry.location;
+      return { lat, lng };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 let gTokenClient = null;
 let gAccessToken = null;
@@ -739,7 +760,7 @@ function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados 
     .slice(0, maxResultados);
 }
 
-function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
+function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onClientSelect }) {
   const [showNearby, setShowNearby] = useState(false);
   const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
   const [showVisitForm, setShowVisitForm] = useState(false);
@@ -859,7 +880,8 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {nearbyClients.map(c => (
-                  <div key={c.id} style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div key={c.id} onClick={() => { setShowNearby(false); onBack(); setTimeout(() => onClientSelect(c), 50); }}
+                style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{c.name}</div>
                       <div style={{ fontSize: 11, color: "#4A6B4C", marginTop: 2 }}>{c.distanciaKm.toFixed(1)} km</div>
@@ -1030,13 +1052,26 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
     }
 
     let actualizados = 0;
+    let geocodificados = 0;
     for (const [id, localC] of localMap) {
       const sheetC = sheetMap.get(id);
       if (sheetC && fieldsDiffer(localC, sheetC)) {
         const localTime = localC.lastModified || 0;
         const sheetTime = sheetC.lastModified || 0;
         if (sheetTime >= localTime) {
-          await rawUpdateClient({ ...localC, ...sheetC, visits: localC.visits || [] });
+          let merged = { ...localC, ...sheetC, visits: localC.visits || [] };
+          const addressChanged = (sheetC.address || "") !== (localC.address || "");
+          if (addressChanged && sheetC.address) {
+            setSyncMsg(`Geocodificando: ${sheetC.name}...`);
+            const coords = await geocodeAddress(sheetC.address);
+            if (coords) {
+              merged = { ...merged, lat: coords.lat, lng: coords.lng };
+              geocodificados++;
+            } else {
+              merged = { ...merged, lat: null, lng: null };
+            }
+          }
+          await rawUpdateClient(merged);
           actualizados++;
         }
       }
@@ -1044,7 +1079,16 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
 
     for (const [id, sheetC] of sheetMap) {
       if (!localMap.has(id)) {
-        await rawAddClient(sheetC);
+        let toAdd = sheetC;
+        if (sheetC.address) {
+          setSyncMsg(`Geocodificando: ${sheetC.name}...`);
+          const coords = await geocodeAddress(sheetC.address);
+          if (coords) {
+            toAdd = { ...sheetC, lat: coords.lat, lng: coords.lng };
+            geocodificados++;
+          }
+        }
+        await rawAddClient(toAdd);
       }
     }
 
@@ -1078,7 +1122,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
     await writeSheetRows(rowsToWrite);
 
     setSyncing(false);
-    setSyncMsg(`¡Sincronizado! (${finalClients.length} clientes, ${actualizados} actualizados)`);
+    setSyncMsg(`¡Sincronizado! (${finalClients.length} clientes, ${actualizados} actualizados, ${geocodificados} geocodificados)`);
     setTimeout(() => setSyncMsg(""), 4000);
   }
 
@@ -1303,6 +1347,7 @@ export default function GrowCRM() {
           onUpdate={updateClient}
           allClients={clients}
           onDelete={deleteClient}
+          onClientSelect={setSelectedClient}
         />
       )}
       {showClientForm && (
