@@ -1110,7 +1110,11 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
     }
 
     if (!isSheetEmpty) {
-      const toDelete = [...localMap.values()].filter(c => !sheetMap.has(c.id));
+      const ahora = Date.now();
+      const UMBRAL = 1000 * 60 * 60 * 24 * 2; // 2 días
+      const toDelete = [...localMap.values()].filter(c => 
+        !sheetMap.has(c.id) && (ahora - (c.lastModified || 0)) > UMBRAL
+      );
       if (toDelete.length > 0) {
         const nombres = toDelete.map(c => c.name).join(", ");
         const confirmar = window.confirm(
