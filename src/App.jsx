@@ -810,7 +810,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>{TYPE_LABEL[client.type]}</div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div style={{ flex: 1, marginRight: 12 }}>
+          <div style={{ flex: 1, marginRight: 12, minWidth: 0 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE", lineHeight: 1.2 }}>{client.name}</div>
             {client.phone_display && <div style={{ fontSize: 12, color: "#7AE84A", marginTop: 4 }}>{client.phone_display}</div>}
             {editingAddress ? (
