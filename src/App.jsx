@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { db, auth } from "./firebase";
-import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc, updateDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 
 // ─── GOOGLE CALENDAR INTEGRATION (OAuth real) ──────────────────────────────
@@ -237,7 +237,7 @@ function useFirestoreClients() {
         setLoading(false);
         return;
       }
-      const list = snapshot.docs.map(d => d.data());
+      const list = snapshot.docs.map(d => d.data()).filter(c => !c.deleted);
       setClients(list);
       setLoading(false);
     });
@@ -260,12 +260,12 @@ function useFirestoreClients() {
   }
 
   async function deleteClient(clientId) {
-    try {
-      await deleteDoc(doc(db, "clients", String(clientId)));
-    } catch (e) {
-      console.error("Error deleting client:", e);
-    }
+  try {
+    await updateDoc(doc(db, "clients", String(clientId)), { deleted: true, deletedAt: new Date().toISOString() });
+  } catch (e) {
+    console.error("Error deleting client:", e);
   }
+}
 
   return { clients, loading, updateClient, addClient, deleteClient };
 }
