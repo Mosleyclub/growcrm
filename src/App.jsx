@@ -766,6 +766,8 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
   const [showVisitForm, setShowVisitForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressInput, setAddressInput] = useState(client.address || "");
+ const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(client.name || "");
   const [editingInstagram, setEditingInstagram] = useState(false);
   const [instagramInput, setInstagramInput] = useState(client.instagram || "");
   const [editingEncargado, setEditingEncargado] = useState(false);
@@ -784,6 +786,11 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
   function handleSaveAddress() {
     onUpdate({ ...client, address: addressInput.trim() });
     setEditingAddress(false);
+  }
+
+  function handleSaveName() {
+    setEditingName(false);
+    onUpdate({ ...client, name: nameInput.trim() });
   }
 
   function handleSaveInstagram() {
@@ -811,7 +818,14 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ flex: 1, marginRight: 12, minWidth: 0 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE", lineHeight: 1.2 }}>{client.name}</div>
+            {editingName ? (
+            <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+              <input value={nameInput} onChange={e => setNameInput(e.target.value)} style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 18, fontWeight: 700, padding: "4px 8px", fontFamily: "inherit", outline: "none" }} autoFocus />
+              <button onClick={handleSaveName} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+            </div>
+          ) : (
+            <div onClick={() => { setNameInput(client.name || ""); setEditingName(true); }} style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE", lineHeight: 1.2, cursor: "pointer" }}>{client.name}</div>
+          )}
             {client.phone_display && <div style={{ fontSize: 12, color: "#7AE84A", marginTop: 4 }}>{client.phone_display}</div>}
             {editingAddress ? (
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
