@@ -338,7 +338,7 @@ function getMatchedClient(title, clients) {
 
 // ─── THERMOMETER STATUS ──────────────────────────────────────────────────────
 function ThermoBadge({ status }) {
-  const cfg = STATUS_CONFIG[status];
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG[Object.keys(STATUS_CONFIG)[0]];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <div style={{ position: "relative", width: 10, height: 28 }}>
