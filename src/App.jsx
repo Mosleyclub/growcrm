@@ -361,7 +361,7 @@ function ScheduleVisitForm({ clients, initialDate, onClose, onSaved }) {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const filtered = clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
+  const filtered = clients.filter(c => (c.name || "").toLowerCase().includes(search.toLowerCase())).slice(0, 8);
 
   async function handleSave() {
     if (!selectedClient) return;
@@ -1162,7 +1162,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
   }
 
   const filtered = clients.filter(c => {
-    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = (c.name || "").toLowerCase().includes(search.toLowerCase()) || (c.address || "").toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === "all" || c.status === filter || c.type === filter;
     return matchSearch && matchFilter;
   }).sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
