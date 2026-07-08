@@ -253,7 +253,16 @@ function useFirestoreClients() {
   }
   async function addClient(client) {
     try {
-      await setDoc(doc(db, "clients", String(client.id)), client);
+      let toSave = { ...client };
+      if (toSave.address && !toSave.lat && !toSave.lng) {
+        try {
+          const coords = await geocodeAddress(toSave.address);
+          if (coords) { toSave.lat = coords.lat; toSave.lng = coords.lng; }
+        } catch (e) {
+          console.error("Error geocoding new client:", e);
+        }
+      }
+      await setDoc(doc(db, "clients", String(toSave.id)), toSave);
     } catch (e) {
       console.error("Error adding client:", e);
     }
