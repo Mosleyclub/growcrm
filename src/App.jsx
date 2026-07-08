@@ -504,7 +504,7 @@ function TodayTab({ clients, onClientSelect }) {
     .map(evt => ({ ...evt, client: getMatchedClient(evt.title, clients) }))
     .filter(evt => evt.client);
 
-  const stopsWithAddress = matched.filter(evt => evt.client.address);
+  const stopsWithAddress = matched.filter(evt => evt.client.address || (evt.client.lat && evt.client.lng));
 
   function ordenarPorCercania(stops) {
     const conCoords = stops.filter(evt => evt.client.lat && evt.client.lng);
