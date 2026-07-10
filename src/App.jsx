@@ -237,7 +237,7 @@ function useFirestoreClients() {
         setLoading(false);
         return;
       }
-      const list = snapshot.docs.map(d => d.data()).filter(c => !c.deleted);
+      const list = snapshot.docs.map(d => ({ ...d.data(), id: d.id })).filter(c => !c.deleted);
       setClients(list);
       setLoading(false);
     });
