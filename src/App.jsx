@@ -781,6 +781,12 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
   const [instagramInput, setInstagramInput] = useState(client.instagram || "");
   const [editingEncargado, setEditingEncargado] = useState(false);
   const [encargadoInput, setEncargadoInput] = useState(client.encargado || "");
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
+
+  function handleChangeStatus(newStatus) {
+    onUpdate({ ...client, status: newStatus });
+    setShowStatusPicker(false);
+  }
 
   function handleSaveVisit(visit, newStatus) {
     const updated = {
@@ -870,7 +876,21 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
               </div>
             )}
           </div>
-          <ThermoBadge status={client.status} />
+         <div style={{ position: "relative" }}>
+            <div onClick={() => setShowStatusPicker(p => !p)} style={{ cursor: "pointer" }}>
+              <ThermoBadge status={client.status} />
+            </div>
+            {showStatusPicker && (
+              <div style={{ position: "absolute", top: "110%", right: 0, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, padding: 6, display: "flex", flexDirection: "column", gap: 4, zIndex: 50, minWidth: 100 }}>
+                {["hot", "warm", "cold"].map(s => (
+                  <button key={s} onClick={() => handleChangeStatus(s)}
+                    style={{ background: client.status === s ? STATUS_CONFIG[s].bg : "transparent", border: "none", borderRadius: 6, padding: "6px 10px", color: STATUS_CONFIG[s].color, fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
+                    {STATUS_CONFIG[s].label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
