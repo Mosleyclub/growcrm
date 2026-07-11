@@ -1292,11 +1292,23 @@ function SearchTab({ clients, onQuickAdd }) {
     setBuscado(true);
     const query = `${rubro.trim() || "growshop"} en ${zona.trim()}, Argentina`;
     try {
-      const res = await fetch(
-        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GEOCODING_API_KEY}`
-      );
+      const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": GEOCODING_API_KEY,
+          "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location",
+        },
+        body: JSON.stringify({ textQuery: query, languageCode: "es" }),
+      });
       const data = await res.json();
-      setResults(data.results || []);
+      const mapeados = (data.places || []).map(p => ({
+        place_id: p.id,
+        name: p.displayName?.text || "",
+        formatted_address: p.formattedAddress || "",
+        geometry: { location: { lat: p.location?.latitude, lng: p.location?.longitude } },
+      }));
+      setResults(mapeados);
     } catch {
       setResults([]);
     }
