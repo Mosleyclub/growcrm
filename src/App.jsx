@@ -1315,9 +1315,18 @@ function SearchTab({ clients, onQuickAdd }) {
     setLoading(false);
   }
 
-  function yaEsCliente(place) {
+ function yaEsCliente(place) {
     const nombreNorm = normalizeForMatch(place.name);
-    return clients.some(c => normalizeForMatch(c.name) === nombreNorm);
+    const lat = place.geometry?.location?.lat;
+    const lng = place.geometry?.location?.lng;
+    return clients.some(c => {
+      if (normalizeForMatch(c.name) === nombreNorm) return true;
+      if (lat && lng && c.lat && c.lng) {
+        const dist = calcularDistanciaKm(lat, lng, c.lat, c.lng);
+        if (dist <= 0.03) return true; // menos de 30 metros: mismo lugar
+      }
+      return false;
+    });
   }
 
   return (
