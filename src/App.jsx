@@ -1117,6 +1117,13 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
       }
     }
 
+    const nuevos = [...sheetMap.keys()].filter(id => !localMap.has(id));
+    if (nuevos.length > 20) {
+      const seguir = window.confirm(
+        `Atención: ${nuevos.length} clientes de la planilla no se pudieron emparejar con la app (podrían tratarse como nuevos y pisar datos existentes). ¿Seguro que querés continuar?`
+      );
+      if (!seguir) { setSyncing(false); setSyncMsg("Sincronización cancelada."); setTimeout(() => setSyncMsg(""), 4000); return; }
+    }
     for (const [id, sheetC] of sheetMap) {
       if (!localMap.has(id)) {
         let toAdd = sheetC;
