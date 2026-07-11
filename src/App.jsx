@@ -769,7 +769,7 @@ function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados 
     .slice(0, maxResultados);
 }
 
-function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
+function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelectClient }) {
   const [showNearby, setShowNearby] = useState(false);
   const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
   const [showVisitForm, setShowVisitForm] = useState(false);
@@ -921,7 +921,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete }) {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {nearbyClients.map(c => (
-                  <div key={c.id} style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div key={c.id} onClick={() => { onSelectClient(c); setShowNearby(false); }} style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{c.name}</div>
                       <div style={{ fontSize: 11, color: "#4A6B4C", marginTop: 2 }}>{c.distanciaKm.toFixed(1)} km</div>
@@ -1080,7 +1080,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
 
     const dataRows = rows.slice(1);
     const sheetClients = dataRows.map(rowToClient).filter(Boolean);
-    const sheetMap = new Map(sheetClients.map(c => [c.id, c]));
+    const sheetMap = new Map(sheetClients.map(c => [String(c.id), c]));
     const localMap = new Map(clients.map(c => [c.id, c]));
     const isSheetEmpty = sheetClients.length === 0;
 
@@ -1391,6 +1391,7 @@ export default function GrowCRM() {
           onUpdate={updateClient}
           allClients={clients}
           onDelete={deleteClient}
+          onSelectClient={setSelectedClient}
         />
       )}
       {showClientForm && (
