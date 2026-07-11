@@ -298,6 +298,7 @@ const ICONS = {
   edit:     "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
   trash:    "M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6",
   thermo:   "M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z",
+  search:   "M21 21l-4.35-4.35M18 11a7 7 0 11-14 0 7 7 0 0114 0z",
 };
 
 // Detecta si una direccion guardada es en realidad un link de Maps
@@ -999,7 +1000,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
 }
 
 // ─── CLIENT FORM (new/edit) ──────────────────────────────────────────────────
-function ClientForm({ client, onSave, onClose }) {
+function ClientForm({ client, onSave, onClose, isNew }) {
   const [form, setForm] = useState(client || { name: "", type: "grow_shop", phone: "", address: "", status: "cold", notes: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -1009,7 +1010,7 @@ function ClientForm({ client, onSave, onClose }) {
         <button onClick={onClose} style={{ background: "none", border: "none", color: "#7AE84A", cursor: "pointer", padding: 4 }}>
           <Icon d={ICONS.back} size={22} />
         </button>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>{client ? "Editar cliente" : "Nuevo cliente"}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>{client && !isNew ? "Editar cliente" : "Nuevo cliente"}</div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 100px" }}>
@@ -1059,7 +1060,7 @@ function ClientForm({ client, onSave, onClose }) {
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
         <button onClick={() => onSave(form)} disabled={!form.name.trim()}
           style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: form.name.trim() ? "#7AE84A" : "#1E2E1F", color: form.name.trim() ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: form.name.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
-          {client ? "Guardar cambios" : "Agregar cliente"}
+          {client && !isNew ? "Guardar cambios" : "Agregar cliente"}
         </button>
       </div>
     </div>
@@ -1277,6 +1278,92 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
   );
 }
 
+// ─── SEARCH TAB (buscar negocios nuevos por zona/rubro) ────────────────────
+function SearchTab({ clients, onQuickAdd }) {
+  const [rubro, setRubro] = useState("");
+  const [zona, setZona] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [buscado, setBuscado] = useState(false);
+
+  async function handleBuscar() {
+    if (!zona.trim()) return;
+    setLoading(true);
+    setBuscado(true);
+    const query = `${rubro.trim() || "growshop"} en ${zona.trim()}, Argentina`;
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GEOCODING_API_KEY}`
+      );
+      const data = await res.json();
+      setResults(data.results || []);
+    } catch {
+      setResults([]);
+    }
+    setLoading(false);
+  }
+
+  function yaEsCliente(place) {
+    const nombreNorm = normalizeForMatch(place.name);
+    return clients.some(c => normalizeForMatch(c.name) === nombreNorm);
+  }
+
+  return (
+    <div style={{ padding: "0 16px 100px" }}>
+      <div style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE", margin: "16px 0 14px" }}>Buscar negocios</div>
+
+      <input value={rubro} onChange={e => setRubro(e.target.value)} placeholder="Rubro (ej: growshop)"
+        style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input value={zona} onChange={e => setZona(e.target.value)} placeholder="Zona (ej: Quilmes)"
+          style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+        <button onClick={handleBuscar} disabled={!zona.trim() || loading}
+          style={{ background: zona.trim() ? "#7AE84A" : "#1E2E1F", border: "none", borderRadius: 10, padding: "0 16px", color: zona.trim() ? "#0D1F0F" : "#2E4A30", fontWeight: 700, fontSize: 13, cursor: zona.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+          {loading ? "Buscando..." : "Buscar"}
+        </button>
+      </div>
+
+      {buscado && !loading && (
+        <div style={{ color: "#4A6B4C", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+          {results.length} resultados
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {results.map(place => {
+          const yaCliente = yaEsCliente(place);
+          return (
+            <div key={place.place_id} style={{ background: "#1E2E1F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: yaCliente ? 0.55 : 1 }}>
+              <div>
+                <div style={{ color: "#F2F5EE", fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{place.name}</div>
+                <div style={{ color: "#4A6B4C", fontSize: 11 }}>{yaCliente ? "Ya es tu cliente" : place.formatted_address}</div>
+              </div>
+              {yaCliente ? (
+                <Icon d={ICONS.check} size={16} color="#4A6B4C" />
+              ) : (
+                <button onClick={() => onQuickAdd({
+                  name: place.name,
+                  address: place.formatted_address || "",
+                  phone: "",
+                  type: "grow_shop",
+                  status: "cold",
+                  notes: "",
+                  lat: place.geometry?.location?.lat,
+                  lng: place.geometry?.location?.lng,
+                })}
+                  style={{ background: "#0A2A10", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#7AE84A", cursor: "pointer", flexShrink: 0 }}>
+                  <Icon d={ICONS.plus} size={16} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -1322,6 +1409,7 @@ export default function GrowCRM() {
   const [user, setUser] = useState(undefined);
   const { clients, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient } = useFirestoreClients();
   const [tab, setTab] = useState("today");
+  const [prefillClient, setPrefillClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientForm, setShowClientForm] = useState(false);
   const [editClient, setEditClient] = useState(null);
@@ -1395,12 +1483,14 @@ export default function GrowCRM() {
         <div style={{ paddingBottom: 0 }}>
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
           {tab === "clients" && <ClientsTab clients={clients} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
+          {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} />}
         </div>
 
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#0D1F0F", borderTop: "1px solid #1E2E1F", display: "flex", zIndex: 50 }}>
           {[
             { key: "today", label: "Hoy", icon: ICONS.calendar },
             { key: "clients", label: "Clientes", icon: ICONS.clients },
+            { key: "search", label: "Buscar", icon: ICONS.search },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               style={{ flex: 1, padding: "12px 0 20px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: tab === t.key ? "#7AE84A" : "#2E4A30", transition: "color 0.2s", fontFamily: "inherit" }}>
@@ -1423,6 +1513,9 @@ export default function GrowCRM() {
       )}
       {showClientForm && (
         <ClientForm onSave={addClient} onClose={() => setShowClientForm(false)} />
+      )}
+      {prefillClient && (
+        <ClientForm client={prefillClient} isNew onSave={c => { addClient(c); setPrefillClient(null); }} onClose={() => setPrefillClient(null)} />
       )}
       {editClient && (
         <ClientForm client={editClient} onSave={updated => { updateClient({ ...editClient, ...updated }); setEditClient(null); }} onClose={() => setEditClient(null)} />
