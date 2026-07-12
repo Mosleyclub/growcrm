@@ -1320,10 +1320,12 @@ function SearchTab({ clients, onQuickAdd }) {
     const lat = place.geometry?.location?.lat;
     const lng = place.geometry?.location?.lng;
     return clients.some(c => {
-      if (normalizeForMatch(c.name) === nombreNorm) return true;
+      const cNorm = normalizeForMatch(c.name);
+      if (cNorm === nombreNorm) return true;
+      if (nombreNorm.length >= 4 && (cNorm.includes(nombreNorm) || nombreNorm.includes(cNorm))) return true;
       if (lat && lng && c.lat && c.lng) {
         const dist = calcularDistanciaKm(lat, lng, c.lat, c.lng);
-        if (dist <= 0.03) return true; // menos de 30 metros: mismo lugar
+        if (dist <= 0.08) return true; // menos de 80 metros: mismo lugar
       }
       return false;
     });
