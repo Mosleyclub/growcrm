@@ -1322,15 +1322,13 @@ function SearchTab({ clients, onQuickAdd }) {
     return clients.some(c => {
       const cNorm = normalizeForMatch(c.name);
       if (cNorm === nombreNorm) return true;
-      if (nombreNorm.length >= 4 && (cNorm.includes(nombreNorm) || nombreNorm.includes(cNorm))) return true;
       if (lat && lng && c.lat && c.lng) {
         const dist = calcularDistanciaKm(lat, lng, c.lat, c.lng);
-        if (dist <= 0.08) return true; // menos de 80 metros: mismo lugar
+        if (dist <= 0.05) return true; // menos de 50 metros: mismo lugar
       }
       return false;
     });
   }
-
   return (
     <div style={{ padding: "0 16px 100px" }}>
       <div style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE", margin: "16px 0 14px" }}>Buscar negocios</div>
