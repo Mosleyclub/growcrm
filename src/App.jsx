@@ -541,6 +541,19 @@ function TodayTab({ clients, onClientSelect }) {
       });
     }
 
+    if (conCoords.length <= 7) {
+      // Con pocas paradas, probamos todas las combinaciones y elegimos
+      // la de distancia total mas corta (resultado optimo real, no aproximado)
+      const combinaciones = permutar(conCoords);
+      let mejorOrden = combinaciones[0];
+      let mejorDistTotal = Infinity;
+      combinaciones.forEach(orden => {
+        const d = distanciaTotalRecorrido(origen, orden);
+        if (d < mejorDistTotal) { mejorDistTotal = d; mejorOrden = orden; }
+      });
+      return [...mejorOrden, ...sinCoords];
+    }
+
     const restantesIniciales = [...conCoords];
     const ordenadas = [restantesIniciales[primero]];
     restantesIniciales.splice(primero, 1);
@@ -780,6 +793,29 @@ function calcularDistanciaKm(lat1, lng1, lat2, lng2) {
     Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+function permutar(arr) {
+  if (arr.length <= 1) return [arr];
+  const resultado = [];
+  for (let i = 0; i < arr.length; i++) {
+    const resto = [...arr.slice(0, i), ...arr.slice(i + 1)];
+    for (const p of permutar(resto)) resultado.push([arr[i], ...p]);
+  }
+  return resultado;
+}
+
+function distanciaTotalRecorrido(origen, orden) {
+  let total = 0;
+  let lat = origen ? origen.lat : orden[0].client.lat;
+  let lng = origen ? origen.lng : orden[0].client.lng;
+  const inicio = origen ? 0 : 1;
+  for (let i = inicio; i < orden.length; i++) {
+    total += calcularDistanciaKm(lat, lng, orden[i].client.lat, orden[i].client.lng);
+    lat = orden[i].client.lat;
+    lng = orden[i].client.lng;
+  }
+  return total;
 }
 
 function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados = 3, maxDistanciaKm = 2) {
