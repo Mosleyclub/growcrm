@@ -473,6 +473,16 @@ function TodayTab({ clients, onClientSelect }) {
   const [connecting, setConnecting] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
   const [showNewVisitForm, setShowNewVisitForm] = useState(false);
+  const [miUbicacion, setMiUbicacion] = useState(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => setMiUbicacion({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {}
+      );
+    }
+  }, []);
 
   const viewedDate = new Date();
   viewedDate.setDate(viewedDate.getDate() + dayOffset);
@@ -516,14 +526,25 @@ function TodayTab({ clients, onClientSelect }) {
 
   const stopsWithAddress = matched.filter(evt => evt.client.address || (evt.client.lat && evt.client.lng));
 
-  function ordenarPorCercania(stops) {
+  function ordenarPorCercania(stops, origen) {
     const conCoords = stops.filter(evt => evt.client.lat && evt.client.lng);
     const sinCoords = stops.filter(evt => !evt.client.lat || !evt.client.lng);
 
     if (conCoords.length <= 1) return [...conCoords, ...sinCoords];
 
-    const ordenadas = [conCoords[0]];
-    const restantes = conCoords.slice(1);
+    let primero = 0;
+    if (origen) {
+      let mejorDistInicial = Infinity;
+      conCoords.forEach((evt, idx) => {
+        const d = calcularDistanciaKm(origen.lat, origen.lng, evt.client.lat, evt.client.lng);
+        if (d < mejorDistInicial) { mejorDistInicial = d; primero = idx; }
+      });
+    }
+
+    const restantesIniciales = [...conCoords];
+    const ordenadas = [restantesIniciales[primero]];
+    restantesIniciales.splice(primero, 1);
+    const restantes = restantesIniciales;
 
     while (restantes.length > 0) {
       const actual = ordenadas[ordenadas.length - 1];
@@ -540,7 +561,7 @@ function TodayTab({ clients, onClientSelect }) {
     return [...ordenadas, ...sinCoords];
   }
 
-  const stopsOrdenadas = ordenarPorCercania(stopsWithAddress);
+  const stopsOrdenadas = ordenarPorCercania(stopsWithAddress, miUbicacion);
 
   function getRouteUrl() {
     const queries = stopsOrdenadas.map(evt => {
@@ -548,11 +569,12 @@ function TodayTab({ clients, onClientSelect }) {
       const isLink = /^https?:\/\//i.test(addr);
       return encodeURIComponent(isLink ? evt.client.name : addr);
     });
-    if (queries.length === 0) return null;
+   if (queries.length === 0) return null;
     if (queries.length === 1) return `https://maps.google.com/?q=${queries[0]}`;
     const destination = queries[queries.length - 1];
     const waypoints = queries.slice(0, -1).join("|");
-    return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+    const origin = miUbicacion ? `&origin=${miUbicacion.lat},${miUbicacion.lng}` : "";
+    return `https://www.google.com/maps/dir/?api=1${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
   }
   if (showNewVisitForm) {
     return <ScheduleVisitForm clients={clients} initialDate={viewedDate} onClose={() => setShowNewVisitForm(false)} onSaved={() => { setShowNewVisitForm(false); loadEvents(); }} />;
