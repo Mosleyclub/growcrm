@@ -840,9 +840,15 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
   const [instagramInput, setInstagramInput] = useState(client.instagram || "");
   const [editingEncargado, setEditingEncargado] = useState(false);
   const [encargadoInput, setEncargadoInput] = useState(client.encargado || "");
-  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(client.phone || "");
 
-  function handleChangeStatus(newStatus) {
+  function handleSavePhone() {
+    onUpdate({ ...client, phone: phoneInput.trim() });
+    setEditingPhone(false);
+  }
+
+  function handleSaveVisit(visit, newStatus) {
     onUpdate({ ...client, status: newStatus });
     setShowStatusPicker(false);
   }
@@ -900,7 +906,17 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
           ) : (
             <div onClick={() => { setNameInput(client.name || ""); setEditingName(true); }} style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE", lineHeight: 1.2, cursor: "pointer" }}>{client.name}</div>
           )}
-            {client.phone_display && <div style={{ fontSize: 12, color: "#7AE84A", marginTop: 4 }}>{client.phone_display}</div>}
+            {editingPhone ? (
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <input value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="Ej: 1140001111" type="tel"
+                  style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 12, padding: "6px 8px", fontFamily: "inherit", outline: "none" }} />
+                <button onClick={handleSavePhone} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+              </div>
+            ) : (
+              <div onClick={() => { setPhoneInput(client.phone || ""); setEditingPhone(true); }} style={{ fontSize: 12, color: client.phone ? "#7AE84A" : "#4A6B4C", marginTop: 4, cursor: "pointer" }}>
+                {client.phone || "Sin WhatsApp · tocá para agregar"}
+              </div>
+            )}
             {editingAddress ? (
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                 <input value={addressInput} onChange={e => setAddressInput(e.target.value)} placeholder="Pegá el link de Maps o la dirección"
