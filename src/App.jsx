@@ -842,18 +842,21 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
   const [encargadoInput, setEncargadoInput] = useState(client.encargado || "");
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(client.phone || "");
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
 
   function handleSavePhone() {
     onUpdate({ ...client, phone: phoneInput.trim() });
     setEditingPhone(false);
   }
 
-  function handleSaveVisit(visit, newStatus) {
+  function handleChangeStatus(newStatus) {
     onUpdate({ ...client, status: newStatus });
     setShowStatusPicker(false);
   }
 
-  function handleSaveVisit(visit, newStatus) {
+  
+
+ function handleSaveVisit(visit, newStatus) {
     const updated = {
       ...client,
       status: newStatus,
