@@ -634,11 +634,17 @@ function TodayTab({ clients, onClientSelect }) {
         </a>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, position: "relative" }}>
         <button onClick={() => setDayOffset(d => d - 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Anterior</button>
         {dayOffset !== 0 && (
           <button onClick={() => setDayOffset(0)} style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 14px", color: "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Hoy</button>
         )}
+        <button onClick={() => { try { fechaInputRef.current.showPicker(); } catch { fechaInputRef.current.click(); } }}
+          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 12px", color: "#7AE84A", cursor: "pointer", display: "flex", alignItems: "center" }}>
+          <Icon d={ICONS.calendar} size={14} />
+        </button>
+        <input ref={fechaInputRef} type="date" value={fechaInputValue(viewedDate)} onChange={handlePickDate}
+          style={{ position: "absolute", opacity: 0, width: 1, height: 1, pointerEvents: "none" }} />
         <button onClick={() => setDayOffset(d => d + 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Siguiente →</button>
       </div>
 
@@ -1433,18 +1439,13 @@ function SearchTab({ clients, onQuickAdd }) {
       <input value={rubro} onChange={e => setRubro(e.target.value)} placeholder="Rubro (ej: growshop)"
         style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, position: "relative" }}>
-        <button onClick={() => setDayOffset(d => d - 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Anterior</button>
-        {dayOffset !== 0 && (
-          <button onClick={() => setDayOffset(0)} style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 14px", color: "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Hoy</button>
-        )}
-        <button onClick={() => { try { fechaInputRef.current.showPicker(); } catch { fechaInputRef.current.click(); } }}
-          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 12px", color: "#7AE84A", cursor: "pointer", display: "flex", alignItems: "center" }}>
-          <Icon d={ICONS.calendar} size={14} />
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input value={zona} onChange={e => setZona(e.target.value)} placeholder="Zona (ej: Quilmes)"
+          style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+        <button onClick={handleBuscar} disabled={!zona.trim() || loading}
+          style={{ background: zona.trim() ? "#7AE84A" : "#1E2E1F", border: "none", borderRadius: 10, padding: "0 16px", color: zona.trim() ? "#0D1F0F" : "#2E4A30", fontWeight: 700, fontSize: 13, cursor: zona.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+          {loading ? "Buscando..." : "Buscar"}
         </button>
-        <input ref={fechaInputRef} type="date" value={fechaInputValue(viewedDate)} onChange={handlePickDate}
-          style={{ position: "absolute", opacity: 0, width: 1, height: 1, pointerEvents: "none" }} />
-        <button onClick={() => setDayOffset(d => d + 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Siguiente →</button>
       </div>
 
       {buscado && !loading && (
