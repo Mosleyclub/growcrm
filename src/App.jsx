@@ -1485,10 +1485,6 @@ function SearchTab({ clients, onQuickAdd }) {
                   </button>
                 </div>
               )}
-                  style={{ background: "#0A2A10", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#7AE84A", cursor: "pointer", flexShrink: 0 }}>
-                  <Icon d={ICONS.plus} size={16} />
-                </button>
-              )}
             </div>
           );
         })}
