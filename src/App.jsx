@@ -472,6 +472,25 @@ function TodayTab({ clients, onClientSelect }) {
   const [needsAuth, setNeedsAuth] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [dayOffset, setDayOffset] = useState(0);
+  const fechaInputRef = useRef(null);
+
+  function fechaInputValue(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function handlePickDate(e) {
+    const val = e.target.value;
+    if (!val) return;
+    const [y, m, d] = val.split("-").map(Number);
+    const picked = new Date(y, m - 1, d);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    picked.setHours(0, 0, 0, 0);
+    setDayOffset(Math.round((picked - hoy) / 86400000));
+  }
   const [showNewVisitForm, setShowNewVisitForm] = useState(false);
   const [miUbicacion, setMiUbicacion] = useState(null);
 
@@ -1078,7 +1097,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
 
 // ─── CLIENT FORM (new/edit) ──────────────────────────────────────────────────
 function ClientForm({ client, onSave, onClose, isNew }) {
-  const [form, setForm] = useState(client || { name: "", type: "grow_shop", phone: "", address: "", status: "cold", notes: "" });
+  const [form, setForm] = useState(client || { name: "", type: "grow_shop", phone: "", address: "", instagram: "", status: "cold", notes: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   return (
@@ -1094,7 +1113,8 @@ function ClientForm({ client, onSave, onClose, isNew }) {
         {[
           { label: "Nombre", key: "name", placeholder: "Ej: Green House Grow Shop" },
           { label: "Teléfono (sin 0 ni 15)", key: "phone", placeholder: "Ej: 1140001111", type: "tel" },
-          { label: "Dirección", key: "address", placeholder: "Ej: Av. Corrientes 1234, CABA" },
+         { label: "Dirección", key: "address", placeholder: "Ej: Av. Corrientes 1234, CABA" },
+          { label: "Instagram", key: "instagram", placeholder: "Ej: @growshop" },
         ].map(f => (
           <div key={f.key} style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>{f.label}</div>
@@ -1413,13 +1433,18 @@ function SearchTab({ clients, onQuickAdd }) {
       <input value={rubro} onChange={e => setRubro(e.target.value)} placeholder="Rubro (ej: growshop)"
         style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <input value={zona} onChange={e => setZona(e.target.value)} placeholder="Zona (ej: Quilmes)"
-          style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
-        <button onClick={handleBuscar} disabled={!zona.trim() || loading}
-          style={{ background: zona.trim() ? "#7AE84A" : "#1E2E1F", border: "none", borderRadius: 10, padding: "0 16px", color: zona.trim() ? "#0D1F0F" : "#2E4A30", fontWeight: 700, fontSize: 13, cursor: zona.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
-          {loading ? "Buscando..." : "Buscar"}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, position: "relative" }}>
+        <button onClick={() => setDayOffset(d => d - 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Anterior</button>
+        {dayOffset !== 0 && (
+          <button onClick={() => setDayOffset(0)} style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 14px", color: "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Hoy</button>
+        )}
+        <button onClick={() => { try { fechaInputRef.current.showPicker(); } catch { fechaInputRef.current.click(); } }}
+          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 12px", color: "#7AE84A", cursor: "pointer", display: "flex", alignItems: "center" }}>
+          <Icon d={ICONS.calendar} size={14} />
         </button>
+        <input ref={fechaInputRef} type="date" value={fechaInputValue(viewedDate)} onChange={handlePickDate}
+          style={{ position: "absolute", opacity: 0, width: 1, height: 1, pointerEvents: "none" }} />
+        <button onClick={() => setDayOffset(d => d + 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Siguiente →</button>
       </div>
 
       {buscado && !loading && (
@@ -1437,19 +1462,29 @@ function SearchTab({ clients, onQuickAdd }) {
                 <div style={{ color: "#F2F5EE", fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{place.name}</div>
                 <div style={{ color: "#4A6B4C", fontSize: 11 }}>{yaCliente ? "Ya es tu cliente" : place.formatted_address}</div>
               </div>
-              {yaCliente ? (
+            {yaCliente ? (
                 <Icon d={ICONS.check} size={16} color="#4A6B4C" />
               ) : (
-                <button onClick={() => onQuickAdd({
-                  name: place.name,
-                  address: place.formatted_address || "",
-                  phone: "",
-                  type: "grow_shop",
-                  status: "cold",
-                  notes: "",
-                  lat: place.geometry?.location?.lat,
-                  lng: place.geometry?.location?.lng,
-                })}
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <a href={getMapsUrl(place.formatted_address, place.name)} target="_blank" rel="noreferrer"
+                    style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#7AE84A" }}>
+                    <Icon d={ICONS.map} size={16} />
+                  </a>
+                  <button onClick={() => onQuickAdd({
+                    name: place.name,
+                    address: place.formatted_address || "",
+                    phone: "",
+                    type: "grow_shop",
+                    status: "cold",
+                    notes: "",
+                    lat: place.geometry?.location?.lat,
+                    lng: place.geometry?.location?.lng,
+                  })}
+                    style={{ background: "#0A2A10", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#7AE84A", cursor: "pointer" }}>
+                    <Icon d={ICONS.plus} size={16} />
+                  </button>
+                </div>
+              )}
                   style={{ background: "#0A2A10", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#7AE84A", cursor: "pointer", flexShrink: 0 }}>
                   <Icon d={ICONS.plus} size={16} />
                 </button>
