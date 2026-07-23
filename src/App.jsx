@@ -1538,7 +1538,7 @@ function LoginScreen({ onLogin }) {
 export default function GrowCRM() {
   const [user, setUser] = useState(undefined);
   const { clients, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient } = useFirestoreClients();
-  const [tab, setTab] = useState("today");
+  const [tab, setTab] = useState(() => localStorage.getItem("grow_tab") || "today");
   const [prefillClient, setPrefillClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientForm, setShowClientForm] = useState(false);
@@ -1550,9 +1550,21 @@ export default function GrowCRM() {
   }, []);
 
   useEffect(() => {
+    localStorage.setItem("grow_tab", tab);
+  }, [tab]);
+
+  useEffect(() => {
     if (selectedClient) {
+      localStorage.setItem("grow_selected_client", String(selectedClient.id));
       const fresh = clients.find(c => c.id === selectedClient.id);
       if (fresh) setSelectedClient(fresh);
+      return;
+    }
+    // Recién arrancó / se refrescó la página: recuperar el cliente que estaba abierto
+    const savedId = localStorage.getItem("grow_selected_client");
+    if (savedId && clients.length) {
+      const found = clients.find(c => String(c.id) === savedId);
+      if (found) setSelectedClient(found);
     }
   }, [clients]);
 
@@ -1607,7 +1619,7 @@ export default function GrowCRM() {
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#7AE84A" }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: "#4A6B4C", letterSpacing: "0.12em", textTransform: "uppercase" }}>Garden Highpro · CRM</span>
           </div>
-          <button onClick={() => signOut(auth)} style={{ background: "none", border: "none", color: "#2E4A30", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Salir</button>
+          <button onClick={() => { localStorage.removeItem("grow_tab"); localStorage.removeItem("grow_selected_client"); signOut(auth); }} style={{ background: "none", border: "none", color: "#2E4A30", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Salir</button>
         </div>
 
         <div style={{ paddingBottom: 0 }}>
@@ -1634,7 +1646,7 @@ export default function GrowCRM() {
       {selectedClient && (
         <ClientDetail
           client={selectedClient}
-          onBack={() => setSelectedClient(null)}
+          onBack={() => { setSelectedClient(null); localStorage.removeItem("grow_selected_client"); }}
           onUpdate={updateClient}
           allClients={clients}
           onDelete={deleteClient}
