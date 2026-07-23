@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { db, auth } from "./firebase";
 import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc, updateDoc } from "firebase/firestore";
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "firebase/auth";
 
 // ─── GOOGLE CALENDAR INTEGRATION (OAuth real) ──────────────────────────────
 const GOOGLE_CLIENT_ID = "382190286267-tr23lvv8bug5540csvmaffv296ck4vbt.apps.googleusercontent.com";
@@ -299,6 +299,10 @@ const ICONS = {
   trash:    "M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6",
   thermo:   "M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z",
   search:   "M21 21l-4.35-4.35M18 11a7 7 0 11-14 0 7 7 0 0114 0z",
+  user:     "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
+  lock:     "M5 11h14v10H5zM8 11V7a4 4 0 118 0v4",
+  eye:      "M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7zM12 15a3 3 0 100-6 3 3 0 000 6z",
+  eyeOff:   "M17.94 17.94A10.94 10.94 0 0112 19c-7 0-11-7-11-7a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 7 11 7a18.5 18.5 0 01-2.16 3.19M14.12 14.12a3 3 0 11-4.24-4.24M1 1l22 22",
 };
 
 // Detecta si una direccion guardada es en realidad un link de Maps
@@ -1495,42 +1499,128 @@ function SearchTab({ clients, onQuickAdd }) {
 }
 
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }) {
+// Fondo decorativo con hojas (SVG propio, sin depender de ninguna imagen externa)
+function LeafBackdrop() {
+  const leaf = "M12 2C9 6 6 9 6 13a6 6 0 0012 0c0-4-3-7-6-11z";
+  const spots = [
+    { top: "-6%", left: "62%", size: 260, rot: 12, op: 0.10 },
+    { top: "8%", left: "88%", size: 180, rot: -18, op: 0.08 },
+    { top: "70%", left: "78%", size: 220, rot: 30, op: 0.07 },
+    { top: "78%", left: "-8%", size: 200, rot: -8, op: 0.08 },
+    { top: "20%", left: "-10%", size: 170, rot: 20, op: 0.06 },
+  ];
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", zIndex: 0 }}>
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 20%, #16240F 0%, #0A140A 60%, #060B06 100%)" }} />
+      {spots.map((s, i) => (
+        <svg key={i} viewBox="0 0 24 24" width={s.size} height={s.size} fill="#7AE84A"
+          style={{ position: "absolute", top: s.top, left: s.left, opacity: s.op, transform: `rotate(${s.rot}deg)` }}>
+          <path d={leaf} />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    setInfo("");
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err) {
-      setError("Email o contraseña incorrectos");
+      setError("Usuario o contraseña incorrectos");
     }
     setLoading(false);
   }
 
+  async function handleForgotPassword() {
+    setError("");
+    setInfo("");
+    if (!email.trim()) {
+      setError("Escribí tu email arriba y tocá de nuevo el link");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setInfo("Te mandamos un mail para restablecer la contraseña");
+    } catch {
+      setError("No se pudo enviar el mail. Revisá el email cargado");
+    }
+  }
+
   return (
-    <div style={{ background: "#0D1F0F", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Space Grotesk', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap');`}</style>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 32 }}>
-        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#7AE84A" }} />
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#7AE84A", letterSpacing: "0.1em", textTransform: "uppercase" }}>Garden Highpro · CRM</span>
+    <div style={{ position: "relative", background: "#0A140A", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Space Grotesk', sans-serif", overflow: "hidden" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');`}</style>
+      <LeafBackdrop />
+
+      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", alignItems: "center" }}>
+
+        <img src="/logo512.png" alt="Código Mosley" width={92} height={92}
+          style={{ borderRadius: 22, marginBottom: 20, boxShadow: "0 8px 30px rgba(212, 194, 74, 0.25)" }} />
+
+        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0.08em", color: "#E9DFAE", textTransform: "uppercase" }}>Código</div>
+        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0.14em", color: "#D4C24A", textTransform: "uppercase", marginTop: -4 }}>— Mosley —</div>
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.25em", color: "#6B7A5E", textTransform: "uppercase", marginTop: 10, marginBottom: 30 }}>
+          Cultura · Planta · Futuro
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <div style={{ position: "absolute", left: 14, color: "#5C6B52" }}><Icon d={ICONS.user} size={16} /></div>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Usuario" required
+              style={{ width: "100%", background: "#16220F", border: "1px solid #2E3A24", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "14px 14px 14px 42px", fontFamily: "inherit", outline: "none" }} />
+          </div>
+
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <div style={{ position: "absolute", left: 14, color: "#5C6B52" }}><Icon d={ICONS.lock} size={16} /></div>
+            <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" required
+              style={{ width: "100%", background: "#16220F", border: "1px solid #2E3A24", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "14px 42px 14px 42px", fontFamily: "inherit", outline: "none" }} />
+            <button type="button" onClick={() => setShowPassword(s => !s)}
+              style={{ position: "absolute", right: 12, background: "none", border: "none", color: "#5C6B52", cursor: "pointer", display: "flex" }}>
+              <Icon d={showPassword ? ICONS.eyeOff : ICONS.eye} size={16} />
+            </button>
+          </div>
+
+          {error && <div style={{ color: "#FF6B6B", fontSize: 12 }}>{error}</div>}
+          {info && <div style={{ color: "#7AE84A", fontSize: 12 }}>{info}</div>}
+
+          <button type="submit" disabled={loading}
+            style={{ background: "linear-gradient(135deg, #C9B23E, #8FA33A)", color: "#0A140A", border: "none", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginTop: 6 }}>
+            {loading ? "Entrando..." : "Ingresar"}
+          </button>
+
+          <button type="button" onClick={handleForgotPassword}
+            style={{ background: "none", border: "none", color: "#D4C24A", fontSize: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "center", marginTop: 2 }}>
+            ¿Olvidaste tu contraseña?
+          </button>
+        </form>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 26 }}>
+          <div style={{ flex: 1, height: 1, background: "#243019" }} />
+          <span style={{ fontSize: 10, color: "#5C6B52", letterSpacing: "0.08em", textTransform: "uppercase" }}>o continúa con</span>
+          <div style={{ flex: 1, height: 1, background: "#243019" }} />
+        </div>
+
+        <div style={{ display: "flex", gap: 14, marginTop: 18 }}>
+          {["Google", "Apple"].map(p => (
+            <button key={p} type="button" onClick={() => setInfo(`Inicio con ${p} próximamente`)}
+              title={`Continuar con ${p} (próximamente)`}
+              style={{ width: 46, height: 46, borderRadius: "50%", background: "#16220F", border: "1px solid #2E3A24", color: "#8FA33A", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {p[0]}
+            </button>
+          ))}
+        </div>
       </div>
-      <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 320, display: "flex", flexDirection: "column", gap: 14 }}>
-        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required
-          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "13px 16px", fontFamily: "inherit", outline: "none" }} />
-        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" required
-          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "13px 16px", fontFamily: "inherit", outline: "none" }} />
-        {error && <div style={{ color: "#FF4D4D", fontSize: 12 }}>{error}</div>}
-        <button type="submit" disabled={loading}
-          style={{ background: "#7AE84A", color: "#0D1F0F", border: "none", borderRadius: 10, padding: "13px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 8 }}>
-          {loading ? "Entrando..." : "Entrar"}
-        </button>
-      </form>
     </div>
   );
 }
