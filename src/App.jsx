@@ -1499,28 +1499,6 @@ function SearchTab({ clients, onQuickAdd }) {
 }
 
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
-// Fondo decorativo con hojas (SVG propio, sin depender de ninguna imagen externa)
-function LeafBackdrop() {
-  const leaf = "M12 2C9 6 6 9 6 13a6 6 0 0012 0c0-4-3-7-6-11z";
-  const spots = [
-    { top: "-6%", left: "62%", size: 260, rot: 12, op: 0.10 },
-    { top: "8%", left: "88%", size: 180, rot: -18, op: 0.08 },
-    { top: "70%", left: "78%", size: 220, rot: 30, op: 0.07 },
-    { top: "78%", left: "-8%", size: 200, rot: -8, op: 0.08 },
-    { top: "20%", left: "-10%", size: 170, rot: 20, op: 0.06 },
-  ];
-  return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", zIndex: 0 }}>
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 20%, #16240F 0%, #0A140A 60%, #060B06 100%)" }} />
-      {spots.map((s, i) => (
-        <svg key={i} viewBox="0 0 24 24" width={s.size} height={s.size} fill="#7AE84A"
-          style={{ position: "absolute", top: s.top, left: s.left, opacity: s.op, transform: `rotate(${s.rot}deg)` }}>
-          <path d={leaf} />
-        </svg>
-      ))}
-    </div>
-  );
-}
 
 function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -1559,18 +1537,17 @@ function LoginScreen() {
   }
 
   return (
-    <div style={{ position: "relative", background: "#0A140A", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Space Grotesk', sans-serif", overflow: "hidden" }}>
+    <div style={{ position: "relative", background: "radial-gradient(circle at 50% 15%, #16240F 0%, #0A140A 55%, #060B06 100%)", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 20px", fontFamily: "'Space Grotesk', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');`}</style>
-      <LeafBackdrop />
 
-      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
-        <img src="/logo512.png" alt="Código Mosley" width={92} height={92}
-          style={{ borderRadius: 22, marginBottom: 20, boxShadow: "0 8px 30px rgba(212, 194, 74, 0.25)" }} />
+        <img src="/logo512.png" alt="Código Mosley" width={84} height={84}
+          style={{ borderRadius: 20, marginBottom: 18, boxShadow: "0 8px 30px rgba(212, 194, 74, 0.25)" }} />
 
-        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0.08em", color: "#E9DFAE", textTransform: "uppercase" }}>Código</div>
-        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0.14em", color: "#D4C24A", textTransform: "uppercase", marginTop: -4 }}>— Mosley —</div>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.25em", color: "#6B7A5E", textTransform: "uppercase", marginTop: 10, marginBottom: 30 }}>
+        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.06em", color: "#E9DFAE", textTransform: "uppercase" }}>Código</div>
+        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.1em", color: "#D4C24A", textTransform: "uppercase", marginTop: -4 }}>— Mosley —</div>
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.22em", color: "#6B7A5E", textTransform: "uppercase", marginTop: 8, marginBottom: 28 }}>
           Cultura · Planta · Futuro
         </div>
 
@@ -1604,22 +1581,6 @@ function LoginScreen() {
             ¿Olvidaste tu contraseña?
           </button>
         </form>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 26 }}>
-          <div style={{ flex: 1, height: 1, background: "#243019" }} />
-          <span style={{ fontSize: 10, color: "#5C6B52", letterSpacing: "0.08em", textTransform: "uppercase" }}>o continúa con</span>
-          <div style={{ flex: 1, height: 1, background: "#243019" }} />
-        </div>
-
-        <div style={{ display: "flex", gap: 14, marginTop: 18 }}>
-          {["Google", "Apple"].map(p => (
-            <button key={p} type="button" onClick={() => setInfo(`Inicio con ${p} próximamente`)}
-              title={`Continuar con ${p} (próximamente)`}
-              style={{ width: 46, height: 46, borderRadius: "50%", background: "#16220F", border: "1px solid #2E3A24", color: "#8FA33A", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {p[0]}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );
