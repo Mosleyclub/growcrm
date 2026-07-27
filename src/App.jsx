@@ -1508,6 +1508,12 @@ function LoginScreen() {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    document.body.style.margin = "0";
+    document.documentElement.style.margin = "0";
+    document.body.style.background = "#0A140A";
+  }, []);
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -1542,8 +1548,8 @@ function LoginScreen() {
 
       <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
-        <img src="/logo512.png" alt="Código Mosley" width={84} height={84}
-          style={{ borderRadius: 20, marginBottom: 18, boxShadow: "0 8px 30px rgba(212, 194, 74, 0.25)" }} />
+        <img src="/logo-login.png" alt="Código Mosley" width={84} height={84}
+          style={{ marginBottom: 18, filter: "drop-shadow(0 8px 20px rgba(212, 194, 74, 0.25))" }} />
 
         <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.06em", color: "#E9DFAE", textTransform: "uppercase" }}>Código</div>
         <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.1em", color: "#D4C24A", textTransform: "uppercase", marginTop: -4 }}>— Mosley —</div>
