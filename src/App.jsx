@@ -1392,7 +1392,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
 }
 
 // ─── SEARCH TAB (buscar negocios nuevos por zona/rubro) ────────────────────
-function SearchTab({ clients, onQuickAdd }) {
+function SearchTab({ clients, onQuickAdd, onSelectClient }) {
   const [rubro, setRubro] = useState("");
   const [zona, setZona] = useState("");
   const [results, setResults] = useState([]);
@@ -1428,13 +1428,13 @@ function SearchTab({ clients, onQuickAdd }) {
     setLoading(false);
   }
 
- function yaEsCliente(place) {
+ function getClienteMatch(place) {
     const nombreNorm = normalizeForMatch(place.name);
     const placeWords = meaningfulWords(place.name);
     const placeCompact = compactOf(place.name);
     const lat = place.geometry?.location?.lat;
     const lng = place.geometry?.location?.lng;
-    return clients.some(c => {
+    return clients.find(c => {
       const cNorm = normalizeForMatch(c.name);
       if (cNorm === nombreNorm) return true;
       if (lat && lng && c.lat && c.lng) {
@@ -1449,7 +1449,7 @@ function SearchTab({ clients, onQuickAdd }) {
       if (cCompact.length >= 5 && placeCompact.length >= 5 &&
           (placeCompact.includes(cCompact) || cCompact.includes(placeCompact))) return true;
       return false;
-    });
+    }) || null;
   }
   return (
     <div style={{ padding: "0 16px 100px" }}>
@@ -1475,12 +1475,15 @@ function SearchTab({ clients, onQuickAdd }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {results.map(place => {
-          const yaCliente = yaEsCliente(place);
+          const clienteExistente = getClienteMatch(place);
+          const yaCliente = !!clienteExistente;
           return (
-            <div key={place.place_id} style={{ background: "#1E2E1F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: yaCliente ? 0.55 : 1 }}>
+            <div key={place.place_id}
+              onClick={yaCliente ? () => onSelectClient(clienteExistente) : undefined}
+              style={{ background: "#1E2E1F", borderRadius: 10, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: yaCliente ? 0.7 : 1, cursor: yaCliente ? "pointer" : "default" }}>
               <div>
                 <div style={{ color: "#F2F5EE", fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{place.name}</div>
-                <div style={{ color: "#4A6B4C", fontSize: 11 }}>{yaCliente ? "Ya es tu cliente" : place.formatted_address}</div>
+                <div style={{ color: "#4A6B4C", fontSize: 11 }}>{yaCliente ? `Ya es tu cliente · ${clienteExistente.name}` : place.formatted_address}</div>
               </div>
             {yaCliente ? (
                 <Icon d={ICONS.check} size={16} color="#4A6B4C" />
