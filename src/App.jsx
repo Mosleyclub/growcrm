@@ -330,6 +330,12 @@ function compactOf(str) {
   return normalizeForMatch(str).replace(/\s+/g, "");
 }
 
+// Palabras muy comunes en nombres de growshops que no sirven para diferenciar un negocio de otro
+const PLACE_MATCH_STOPWORDS = new Set(["grow", "shop", "growshop", "tabaqueria", "tienda", "local", "store", "garden", "green"]);
+function meaningfulWords(str) {
+  return wordsOf(str).filter(w => !PLACE_MATCH_STOPWORDS.has(w));
+}
+
 function getMatchedClient(title, clients) {
   const titleWords = wordsOf(title);
   const titleCompact = compactOf(title);
@@ -1424,6 +1430,8 @@ function SearchTab({ clients, onQuickAdd }) {
 
  function yaEsCliente(place) {
     const nombreNorm = normalizeForMatch(place.name);
+    const placeWords = meaningfulWords(place.name);
+    const placeCompact = compactOf(place.name);
     const lat = place.geometry?.location?.lat;
     const lng = place.geometry?.location?.lng;
     return clients.some(c => {
@@ -1433,6 +1441,13 @@ function SearchTab({ clients, onQuickAdd }) {
         const dist = calcularDistanciaKm(lat, lng, c.lat, c.lng);
         if (dist <= 0.05) return true; // menos de 50 metros: mismo lugar
       }
+      // Coincidencia por palabras significativas (ignora "grow", "shop", etc)
+      const cWords = meaningfulWords(c.name);
+      if (cWords.length && placeWords.length && placeWords.some(w => cWords.includes(w))) return true;
+      // Uno de los nombres contenido dentro del otro (sin espacios)
+      const cCompact = compactOf(c.name);
+      if (cCompact.length >= 5 && placeCompact.length >= 5 &&
+          (placeCompact.includes(cCompact) || cCompact.includes(placeCompact))) return true;
       return false;
     });
   }
