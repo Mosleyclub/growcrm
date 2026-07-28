@@ -1700,7 +1700,7 @@ export default function GrowCRM() {
         <div style={{ paddingBottom: 0 }}>
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
           {tab === "clients" && <ClientsTab clients={clients} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
-          {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} />}
+          {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} onSelectClient={setSelectedClient} />}
         </div>
 
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#0D1F0F", borderTop: "1px solid #1E2E1F", display: "flex", zIndex: 50 }}>
