@@ -1441,9 +1441,9 @@ function SearchTab({ clients, onQuickAdd, onSelectClient }) {
         const dist = calcularDistanciaKm(lat, lng, c.lat, c.lng);
         if (dist <= 0.05) return true; // menos de 50 metros: mismo lugar
       }
-      // Coincidencia por palabras significativas (ignora "grow", "shop", etc)
-      const cWords = meaningfulWords(c.name);
-      if (cWords.length && placeWords.length && placeWords.some(w => cWords.includes(w))) return true;
+      // Coincidencia por palabras significativas (ignora "grow", "shop", etc, y el nombre del dueño al inicio del cliente)
+      const cWordsSinDueño = meaningfulWords(c.name.split(" ").slice(1).join(" "));
+      if (cWordsSinDueño.length && placeWords.length && placeWords.some(w => cWordsSinDueño.includes(w))) return true;
       // Uno de los nombres contenido dentro del otro (sin espacios)
       const cCompact = compactOf(c.name);
       if (cCompact.length >= 5 && placeCompact.length >= 5 &&
