@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { db, auth } from "./firebase";
 import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc, updateDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "firebase/auth";
+import { jsPDF } from "jspdf";
 
 // ─── GOOGLE CALENDAR INTEGRATION (OAuth real) ──────────────────────────────
 const GOOGLE_CLIENT_ID = "382190286267-tr23lvv8bug5540csvmaffv296ck4vbt.apps.googleusercontent.com";
@@ -303,6 +304,8 @@ const ICONS = {
   lock:     "M5 11h14v10H5zM8 11V7a4 4 0 118 0v4",
   eye:      "M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7zM12 15a3 3 0 100-6 3 3 0 000 6z",
   eyeOff:   "M17.94 17.94A10.94 10.94 0 0112 19c-7 0-11-7-11-7a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 7 11 7a18.5 18.5 0 01-2.16 3.19M14.12 14.12a3 3 0 11-4.24-4.24M1 1l22 22",
+  report:   ["M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z", "M14 2v6h6", "M9 13h6", "M9 17h6"],
+  download: ["M12 3v12", "M7 10l5 5 5-5", "M5 21h14"],
 };
 
 // Detecta si una direccion guardada es en realidad un link de Maps
@@ -1610,6 +1613,263 @@ function LoginScreen() {
   );
 }
 
+// ─── INFORMES ───────────────────────────────────────────────────────────────
+function parseFechaVisita(str) {
+  const [d, m, y] = (str || "").split("/").map(Number);
+  if (!d || !m || !y) return null;
+  return new Date(y, m - 1, d);
+}
+
+function fechaLocalISO(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function inicioDeSemana(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function ReportsTab({ clients }) {
+  const hoy = new Date();
+  const [desde, setDesde] = useState(fechaLocalISO(inicioDeSemana(hoy)));
+  const [hasta, setHasta] = useState(fechaLocalISO(hoy));
+  const [generandoPdf, setGenerandoPdf] = useState(false);
+
+  function setRango(inicio, fin) {
+    setDesde(fechaLocalISO(inicio));
+    setHasta(fechaLocalISO(fin));
+  }
+  function estaSemana() { setRango(inicioDeSemana(hoy), hoy); }
+  function semanaPasada() {
+    const inicioActual = inicioDeSemana(hoy);
+    const inicioPasada = new Date(inicioActual);
+    inicioPasada.setDate(inicioPasada.getDate() - 7);
+    const finPasada = new Date(inicioActual);
+    finPasada.setDate(finPasada.getDate() - 1);
+    setRango(inicioPasada, finPasada);
+  }
+
+  const desdeDate = new Date(desde + "T00:00:00");
+  const hastaDate = new Date(hasta + "T23:59:59");
+
+  const visitasEnRango = [];
+  clients.forEach(c => {
+    (c.visits || []).forEach(v => {
+      const fecha = parseFechaVisita(v.date);
+      if (fecha && fecha >= desdeDate && fecha <= hastaDate) {
+        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address });
+      }
+    });
+  });
+  visitasEnRango.sort((a, b) => parseFechaVisita(a.date) - parseFechaVisita(b.date));
+
+  const clientesUnicos = new Set(visitasEnRango.map(v => v.clientName)).size;
+  const conteoEstados = { hot: 0, warm: 0, cold: 0 };
+  visitasEnRango.forEach(v => { if (conteoEstados[v.status] !== undefined) conteoEstados[v.status]++; });
+
+  function formatFechaLarga(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  function textoWhatsapp() {
+    let txt = `*Informe de visitas*\n`;
+    txt += `Periodo: ${formatFechaLarga(desde)} al ${formatFechaLarga(hasta)}\n\n`;
+    txt += `Total de visitas: ${visitasEnRango.length}\n`;
+    txt += `Comercios visitados: ${clientesUnicos}\n`;
+    txt += `Caliente: ${conteoEstados.hot} - Tibio: ${conteoEstados.warm} - Frio: ${conteoEstados.cold}\n\n`;
+    visitasEnRango.forEach((v, i) => {
+      txt += `${i + 1}. ${v.clientName} - ${v.date} - ${STATUS_CONFIG[v.status]?.label || v.status}\n`;
+      if (v.notes) txt += `   ${v.notes}\n`;
+    });
+    return txt;
+  }
+
+  function compartirWhatsapp() {
+    window.open(`https://wa.me/?text=${encodeURIComponent(textoWhatsapp())}`, "_blank");
+  }
+
+  async function descargarPdf() {
+    setGenerandoPdf(true);
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const marginX = 15;
+      let y = 20;
+
+      doc.setFontSize(16);
+      doc.setFont(undefined, "bold");
+      doc.text("Informe de visitas", marginX, y);
+      y += 8;
+      doc.setFontSize(10);
+      doc.setFont(undefined, "normal");
+      doc.text(`Periodo: ${formatFechaLarga(desde)} al ${formatFechaLarga(hasta)}`, marginX, y);
+      y += 5;
+      doc.text(`Generado: ${new Date().toLocaleDateString("es-AR")}`, marginX, y);
+      y += 10;
+
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.text(`Total de visitas: ${visitasEnRango.length}    Comercios visitados: ${clientesUnicos}`, marginX, y);
+      y += 6;
+      doc.setFont(undefined, "normal");
+      doc.text(`Caliente: ${conteoEstados.hot}   Tibio: ${conteoEstados.warm}   Frio: ${conteoEstados.cold}`, marginX, y);
+      y += 10;
+      doc.setDrawColor(200);
+      doc.line(marginX, y, pageWidth - marginX, y);
+      y += 8;
+
+      function nuevaPaginaSiNecesario(alturaNecesaria) {
+        if (y + alturaNecesaria > pageHeight - 15) {
+          doc.addPage();
+          y = 20;
+        }
+      }
+
+      for (let i = 0; i < visitasEnRango.length; i++) {
+        const v = visitasEnRango[i];
+        nuevaPaginaSiNecesario(20);
+
+        doc.setFontSize(12);
+        doc.setFont(undefined, "bold");
+        doc.text(`${i + 1}. ${v.clientName}`, marginX, y);
+        y += 5.5;
+
+        doc.setFontSize(9);
+        doc.setFont(undefined, "normal");
+        doc.text(`${v.date}  -  Estado: ${STATUS_CONFIG[v.status]?.label || v.status}`, marginX, y);
+        y += 5;
+
+        if (v.clientAddress && !/^https?:\/\//i.test(v.clientAddress)) {
+          doc.text(v.clientAddress, marginX, y, { maxWidth: pageWidth - marginX * 2 });
+          y += 5;
+        }
+
+        if (v.notes) {
+          nuevaPaginaSiNecesario(10);
+          const lineas = doc.splitTextToSize(v.notes, pageWidth - marginX * 2);
+          doc.text(lineas, marginX, y);
+          y += lineas.length * 4.5 + 2;
+        }
+
+        if (v.photos && v.photos.length) {
+          const imgSize = 35;
+          let x = marginX;
+          nuevaPaginaSiNecesario(imgSize + 5);
+          v.photos.forEach(p => {
+            if (x + imgSize > pageWidth - marginX) {
+              x = marginX;
+              y += imgSize + 3;
+              nuevaPaginaSiNecesario(imgSize + 5);
+            }
+            try { doc.addImage(p, x, y, imgSize, imgSize, undefined, "FAST"); } catch (e) {}
+            x += imgSize + 3;
+          });
+          y += imgSize + 8;
+        }
+
+        y += 4;
+        doc.setDrawColor(230);
+        doc.line(marginX, y, pageWidth - marginX, y);
+        y += 8;
+      }
+
+      doc.save(`informe-visitas-${desde}-a-${hasta}.pdf`);
+    } catch (e) {
+      alert("No se pudo generar el PDF: " + e.message);
+    }
+    setGenerandoPdf(false);
+  }
+
+  return (
+    <div style={{ padding: "16px 16px 100px" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: "#F2F5EE", marginBottom: 14 }}>Informe de visitas</div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <button onClick={estaSemana} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid #2E4A30", background: "#1E2E1F", color: "#7AE84A", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Esta semana</button>
+        <button onClick={semanaPasada} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid #2E4A30", background: "#1E2E1F", color: "#7AE84A", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Semana pasada</button>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 10, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Desde</div>
+          <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
+            style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, color: "#F2F5EE", fontSize: 13, padding: "8px 10px", fontFamily: "inherit", boxSizing: "border-box" }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 10, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Hasta</div>
+          <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
+            style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, color: "#F2F5EE", fontSize: 13, padding: "8px 10px", fontFamily: "inherit", boxSizing: "border-box" }} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <div style={{ flex: 1, background: "#1E2E1F", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE" }}>{visitasEnRango.length}</div>
+          <div style={{ fontSize: 10, color: "#4A6B4C" }}>Visitas</div>
+        </div>
+        <div style={{ flex: 1, background: "#1E2E1F", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE" }}>{clientesUnicos}</div>
+          <div style={{ fontSize: 10, color: "#4A6B4C" }}>Comercios</div>
+        </div>
+        <div style={{ flex: 1, background: "#1E2E1F", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#F2F5EE" }}>
+            <span style={{ color: STATUS_CONFIG.hot.color }}>{conteoEstados.hot}</span>{" · "}
+            <span style={{ color: STATUS_CONFIG.warm.color }}>{conteoEstados.warm}</span>{" · "}
+            <span style={{ color: STATUS_CONFIG.cold.color }}>{conteoEstados.cold}</span>
+          </div>
+          <div style={{ fontSize: 10, color: "#4A6B4C" }}>Cal · Tib · Frío</div>
+        </div>
+      </div>
+
+      {visitasEnRango.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "30px 0", color: "#4A6B4C", fontSize: 13 }}>
+          No hay visitas registradas en este período.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+          {visitasEnRango.map((v, i) => (
+            <div key={i} style={{ background: "#1E2E1F", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{v.clientName}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
+              </div>
+              <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{v.date}</div>
+              {v.notes && <div style={{ fontSize: 12, color: "#8AA88C" }}>{v.notes}</div>}
+              {v.photos?.length > 0 && (
+                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  {v.photos.map((p, j) => (
+                    <img key={j} src={p} alt="" style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", border: "1px solid #2E4A30" }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={compartirWhatsapp} disabled={visitasEnRango.length === 0}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: 10, border: "none", background: visitasEnRango.length === 0 ? "#1E2E1F" : "#25D366", color: visitasEnRango.length === 0 ? "#4A6B4C" : "#0A140A", fontSize: 13, fontWeight: 700, cursor: visitasEnRango.length === 0 ? "default" : "pointer", fontFamily: "inherit" }}>
+          <Icon d={ICONS.whatsapp} size={16} /> WhatsApp
+        </button>
+        <button onClick={descargarPdf} disabled={visitasEnRango.length === 0 || generandoPdf}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: 10, border: "none", background: visitasEnRango.length === 0 ? "#1E2E1F" : "linear-gradient(135deg, #C9B23E, #8FA33A)", color: visitasEnRango.length === 0 ? "#4A6B4C" : "#0A140A", fontSize: 13, fontWeight: 700, cursor: visitasEnRango.length === 0 ? "default" : "pointer", fontFamily: "inherit" }}>
+          <Icon d={ICONS.download} size={16} /> {generandoPdf ? "Generando..." : "Descargar PDF"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function GrowCRM() {
   const [user, setUser] = useState(undefined);
   const { clients, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient } = useFirestoreClients();
@@ -1701,6 +1961,7 @@ export default function GrowCRM() {
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
           {tab === "clients" && <ClientsTab clients={clients} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
           {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} onSelectClient={setSelectedClient} />}
+          {tab === "reports" && <ReportsTab clients={clients} />}
         </div>
 
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#0D1F0F", borderTop: "1px solid #1E2E1F", display: "flex", zIndex: 50 }}>
@@ -1708,6 +1969,7 @@ export default function GrowCRM() {
             { key: "today", label: "Hoy", icon: ICONS.calendar },
             { key: "clients", label: "Clientes", icon: ICONS.clients },
             { key: "search", label: "Buscar", icon: ICONS.search },
+            { key: "reports", label: "Informes", icon: ICONS.report },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               style={{ flex: 1, padding: "12px 0 20px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: tab === t.key ? "#7AE84A" : "#2E4A30", transition: "color 0.2s", fontFamily: "inherit" }}>
