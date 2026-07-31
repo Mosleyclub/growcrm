@@ -405,7 +405,7 @@ function ScheduleVisitForm({ clients, initialDate, onClose, onSaved }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0D1F0F", zIndex: 200, display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#7AE84A", cursor: "pointer", padding: 4 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#D4C24A", cursor: "pointer", padding: 4 }}>
           <Icon d={ICONS.back} size={22} />
         </button>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>Agendar visita</div>
@@ -415,8 +415,8 @@ function ScheduleVisitForm({ clients, initialDate, onClose, onSaved }) {
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Cliente</div>
           {selectedClient ? (
-            <div style={{ background: "#0A2A10", border: "1px solid #7AE84A", borderRadius: 10, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "#7AE84A", fontSize: 13, fontWeight: 600 }}>{selectedClient.name}</span>
+            <div style={{ background: "#2A2410", border: "1px solid #D4C24A", borderRadius: 10, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: "#D4C24A", fontSize: 13, fontWeight: 600 }}>{selectedClient.name}</span>
               <button onClick={() => setSelectedClient(null)} style={{ background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", fontSize: 12 }}>Cambiar</button>
             </div>
           ) : (
@@ -455,7 +455,7 @@ function ScheduleVisitForm({ clients, initialDate, onClose, onSaved }) {
           <div style={{ display: "flex", gap: 8 }}>
             {[15, 30, 45, 60].map(d => (
               <button key={d} onClick={() => setDuration(d)}
-                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: `2px solid ${duration === d ? "#7AE84A" : "#2E4A30"}`, background: duration === d ? "#0A2A10" : "#1E2E1F", color: duration === d ? "#7AE84A" : "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: `2px solid ${duration === d ? "#D4C24A" : "#2E4A30"}`, background: duration === d ? "#2A2410" : "#1E2E1F", color: duration === d ? "#D4C24A" : "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                 {d} min
               </button>
             ))}
@@ -471,7 +471,7 @@ function ScheduleVisitForm({ clients, initialDate, onClose, onSaved }) {
 
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
         <button onClick={handleSave} disabled={!selectedClient || saving}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: selectedClient && !saving ? "#7AE84A" : "#1E2E1F", color: selectedClient && !saving ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: selectedClient && !saving ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: selectedClient && !saving ? "#D4C24A" : "#1E2E1F", color: selectedClient && !saving ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: selectedClient && !saving ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
           {saving ? "Agendando..." : "Agendar en Google Calendar"}
         </button>
       </div>
@@ -629,12 +629,12 @@ function TodayTab({ clients, onClientSelect }) {
     <div style={{ padding: "0 16px 100px" }}>
       <div style={{ paddingTop: 24, paddingBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: 11, color: "#7AE84A", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>{dayLabel}</div>
+          <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>{dayLabel}</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#F2F5EE", textTransform: "capitalize", marginTop: 2 }}>{dateStr}</div>
         </div>
         {!needsAuth && (
           <button onClick={() => setShowNewVisitForm(true)}
-            style={{ background: "#7AE84A", border: "none", borderRadius: 10, padding: "8px 12px", color: "#0D1F0F", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
+            style={{ background: "#D4C24A", border: "none", borderRadius: 10, padding: "8px 12px", color: "#0D1F0F", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
             <Icon d={ICONS.plus} size={14} color="#0D1F0F" /> Agendar
           </button>
         )}
@@ -642,23 +642,23 @@ function TodayTab({ clients, onClientSelect }) {
 
       {stopsWithAddress.length >= 2 && (
         <a href={getRouteUrl()} target="_blank" rel="noreferrer"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#0A2A10", border: "1px solid #7AE84A", borderRadius: 10, padding: "11px 0", color: "#7AE84A", fontSize: 13, fontWeight: 700, textDecoration: "none", marginBottom: 16 }}>
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#2A2410", border: "1px solid #D4C24A", borderRadius: 10, padding: "11px 0", color: "#D4C24A", fontSize: 13, fontWeight: 700, textDecoration: "none", marginBottom: 16 }}>
           <Icon d={ICONS.map} size={16} /> Ver recorrido completo ({stopsWithAddress.length} paradas)
         </a>
       )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, position: "relative" }}>
-        <button onClick={() => setDayOffset(d => d - 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Anterior</button>
+        <button onClick={() => setDayOffset(d => d - 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#D4C24A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Anterior</button>
         {dayOffset !== 0 && (
           <button onClick={() => setDayOffset(0)} style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 14px", color: "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Hoy</button>
         )}
         <button onClick={() => { try { fechaInputRef.current.showPicker(); } catch { fechaInputRef.current.click(); } }}
-          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 12px", color: "#7AE84A", cursor: "pointer", display: "flex", alignItems: "center" }}>
+          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 12px", color: "#D4C24A", cursor: "pointer", display: "flex", alignItems: "center" }}>
           <Icon d={ICONS.calendar} size={14} />
         </button>
         <input ref={fechaInputRef} type="date" value={fechaInputValue(viewedDate)} onChange={handlePickDate}
           style={{ position: "absolute", opacity: 0, width: 1, height: 1, pointerEvents: "none" }} />
-        <button onClick={() => setDayOffset(d => d + 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#7AE84A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Siguiente →</button>
+        <button onClick={() => setDayOffset(d => d + 1)} style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, padding: "8px 0", color: "#D4C24A", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Siguiente →</button>
       </div>
 
       {needsAuth ? (
@@ -666,7 +666,7 @@ function TodayTab({ clients, onClientSelect }) {
           <div style={{ fontSize: 13, color: "#F2F5EE", marginBottom: 4, fontWeight: 600 }}>Conectá tu Google Calendar</div>
           <div style={{ fontSize: 12, color: "#4A6B4C", marginBottom: 16 }}>Para ver y agendar visitas directamente desde la app</div>
           <button onClick={handleConnect} disabled={connecting}
-            style={{ background: "#7AE84A", border: "none", borderRadius: 10, padding: "12px 24px", color: "#0D1F0F", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ background: "#D4C24A", border: "none", borderRadius: 10, padding: "12px 24px", color: "#0D1F0F", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
             {connecting ? "Conectando..." : "Conectar Google Calendar"}
           </button>
         </div>
@@ -687,7 +687,7 @@ function TodayTab({ clients, onClientSelect }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{evt.title}</div>
-                  {evt.time && <div style={{ fontSize: 11, color: "#7AE84A", marginTop: 2 }}>{evt.time}</div>}
+                  {evt.time && <div style={{ fontSize: 11, color: "#D4C24A", marginTop: 2 }}>{evt.time}</div>}
                   {evt.location && <div style={{ fontSize: 11, color: "#4A6B4C", marginTop: 2 }}>{evt.location}</div>}
                 </div>
                 {evt.client && <ThermoBadge status={evt.client.status} />}
@@ -696,12 +696,12 @@ function TodayTab({ clients, onClientSelect }) {
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2E4A30", display: "flex", gap: 8 }}>
                   <a href={`https://wa.me/${evt.client.phone}`} target="_blank" rel="noreferrer"
                     onClick={e => e.stopPropagation()}
-                    style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                    style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                     <Icon d={ICONS.whatsapp} size={14} /> WhatsApp
                   </a>
                   <a href={getMapsUrl(evt.client.address, evt.client.name)} target="_blank" rel="noreferrer"
                     onClick={e => e.stopPropagation()}
-                    style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                    style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                     <Icon d={ICONS.map} size={14} /> Maps
                   </a>
                 </div>
@@ -761,7 +761,7 @@ function VisitForm({ client, onSave, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0D1F0F", zIndex: 200, display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#7AE84A", cursor: "pointer", padding: 4 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#D4C24A", cursor: "pointer", padding: 4 }}>
           <Icon d={ICONS.back} size={22} />
         </button>
         <div>
@@ -812,7 +812,7 @@ function VisitForm({ client, onSave, onClose }) {
 
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
         <button onClick={handleSave} disabled={!notes.trim()}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() ? "#7AE84A" : "#1E2E1F", color: notes.trim() ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
+          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() ? "#D4C24A" : "#1E2E1F", color: notes.trim() ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
           Guardar visita
         </button>
       </div>
@@ -932,7 +932,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
     <div style={{ position: "fixed", inset: 0, background: "#0D1F0F", zIndex: 100, display: "flex", flexDirection: "column", overflowY: "auto" }}>
       <div style={{ background: "#1E2E1F", padding: "16px 16px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", color: "#7AE84A", cursor: "pointer", padding: 4 }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", color: "#D4C24A", cursor: "pointer", padding: 4 }}>
             <Icon d={ICONS.back} size={22} />
           </button>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>{TYPE_LABEL[client.type]}</div>
@@ -942,7 +942,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
             {editingName ? (
             <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
               <input value={nameInput} onChange={e => setNameInput(e.target.value)} style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 18, fontWeight: 700, padding: "4px 8px", fontFamily: "inherit", outline: "none" }} autoFocus />
-              <button onClick={handleSaveName} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+              <button onClick={handleSaveName} style={{ background: "#D4C24A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
             </div>
           ) : (
             <div onClick={() => { setNameInput(client.name || ""); setEditingName(true); }} style={{ fontSize: 20, fontWeight: 700, color: "#F2F5EE", lineHeight: 1.2, cursor: "pointer" }}>{client.name}</div>
@@ -951,10 +951,10 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                 <input value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="Ej: 1140001111" type="tel"
                   style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 12, padding: "6px 8px", fontFamily: "inherit", outline: "none" }} />
-                <button onClick={handleSavePhone} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+                <button onClick={handleSavePhone} style={{ background: "#D4C24A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
               </div>
             ) : (
-              <div onClick={() => { setPhoneInput(client.phone || ""); setEditingPhone(true); }} style={{ fontSize: 12, color: client.phone ? "#7AE84A" : "#4A6B4C", marginTop: 4, cursor: "pointer" }}>
+              <div onClick={() => { setPhoneInput(client.phone || ""); setEditingPhone(true); }} style={{ fontSize: 12, color: client.phone ? "#D4C24A" : "#4A6B4C", marginTop: 4, cursor: "pointer" }}>
                 {client.phone || "Sin WhatsApp · tocá para agregar"}
               </div>
             )}
@@ -962,7 +962,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                 <input value={addressInput} onChange={e => setAddressInput(e.target.value)} placeholder="Pegá el link de Maps o la dirección"
                   style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 12, padding: "6px 8px", fontFamily: "inherit", outline: "none" }} />
-                <button onClick={handleSaveAddress} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+                <button onClick={handleSaveAddress} style={{ background: "#D4C24A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
               </div>
             ) : (
               <div onClick={() => setEditingAddress(true)} style={{ fontSize: 12, color: client.address ? "#4A6B4C" : "#FF9A3C", marginTop: 2, cursor: "pointer", textDecoration: client.address ? "none" : "underline" }}>
@@ -973,7 +973,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                 <input value={instagramInput} onChange={e => setInstagramInput(e.target.value)} placeholder="Pegá el link de Instagram"
                   style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 12, padding: "6px 8px", fontFamily: "inherit", outline: "none" }} />
-                <button onClick={handleSaveInstagram} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+                <button onClick={handleSaveInstagram} style={{ background: "#D4C24A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
               </div>
             ) : (
               <div onClick={() => setEditingInstagram(true)} style={{ fontSize: 12, color: client.instagram ? "#4A6B4C" : "#FF9A3C", marginTop: 2, cursor: "pointer", textDecoration: client.instagram ? "none" : "underline" }}>
@@ -984,7 +984,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                 <input value={encargadoInput} onChange={e => setEncargadoInput(e.target.value)} placeholder="Nombre del encargado o contacto"
                   style={{ flex: 1, background: "#0D1F0F", border: "1px solid #2E4A30", borderRadius: 6, color: "#F2F5EE", fontSize: 12, padding: "6px 8px", fontFamily: "inherit", outline: "none" }} />
-                <button onClick={handleSaveEncargado} style={{ background: "#7AE84A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
+                <button onClick={handleSaveEncargado} style={{ background: "#D4C24A", border: "none", borderRadius: 6, padding: "0 10px", color: "#0D1F0F", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>OK</button>
               </div>
             ) : (
               <div onClick={() => setEditingEncargado(true)} style={{ fontSize: 12, color: client.encargado ? "#4A6B4C" : "#FF9A3C", marginTop: 2, cursor: "pointer", textDecoration: client.encargado ? "none" : "underline" }}>
@@ -1011,15 +1011,15 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
 
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
           <a href={`https://wa.me/${client.phone}`} target="_blank" rel="noreferrer"
-            style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon d={ICONS.whatsapp} size={16} /> WhatsApp
           </a>
           <a href={getMapsUrl(client.address, client.name)} target="_blank" rel="noreferrer"
-            style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon d={ICONS.map} size={16} /> {client.address ? "Maps" : "Buscar ubicación"}
           </a>
           <button onClick={() => setShowVisitForm(true)}
-            style={{ flex: 1, background: "#7AE84A", color: "#0D1F0F", border: "none", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
+            style={{ flex: 1, background: "#D4C24A", color: "#0D1F0F", border: "none", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
             <Icon d={ICONS.plus} size={16} color="#0D1F0F" /> Visita
           </button>
         </div>
@@ -1027,13 +1027,13 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           {client.lat && client.lng && (
             <button onClick={() => setShowNearby(true)}
-              style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
+              style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
               <Icon d={ICONS.map} size={14} /> Ver cercanos
             </button>
           )}
           {client.instagram && (
             <a href={client.instagram} target="_blank" rel="noreferrer"
-              style={{ flex: 1, background: "#0A2A10", color: "#7AE84A", border: "1px solid #2E4A30", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Icon d={ICONS.camera} size={14} /> Instagram
             </a>
           )}
@@ -1093,7 +1093,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
               {client.visits.map(v => (
                 <div key={v.id} style={{ background: "#1E2E1F", borderRadius: 12, padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, color: "#7AE84A", fontWeight: 600 }}>{v.date}</div>
+                    <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
                     <ThermoBadge status={v.status} />
                   </div>
                   <div style={{ fontSize: 13, color: "#C8D9C9", lineHeight: 1.5, marginBottom: v.photos?.length ? 10 : 0 }}>{v.notes}</div>
@@ -1122,7 +1122,7 @@ function ClientForm({ client, onSave, onClose, isNew }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0D1F0F", zIndex: 200, display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#7AE84A", cursor: "pointer", padding: 4 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#D4C24A", cursor: "pointer", padding: 4 }}>
           <Icon d={ICONS.back} size={22} />
         </button>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>{client && !isNew ? "Editar cliente" : "Nuevo cliente"}</div>
@@ -1147,7 +1147,7 @@ function ClientForm({ client, onSave, onClose, isNew }) {
           <div style={{ display: "flex", gap: 8 }}>
             {Object.entries(TYPE_LABEL).map(([k, v]) => (
               <button key={k} onClick={() => set("type", k)}
-                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: `2px solid ${form.type === k ? "#7AE84A" : "#2E4A30"}`, background: form.type === k ? "#0A2A10" : "#1E2E1F", color: form.type === k ? "#7AE84A" : "#4A6B4C", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: `2px solid ${form.type === k ? "#D4C24A" : "#2E4A30"}`, background: form.type === k ? "#2A2410" : "#1E2E1F", color: form.type === k ? "#D4C24A" : "#4A6B4C", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                 {v}
               </button>
             ))}
@@ -1175,7 +1175,7 @@ function ClientForm({ client, onSave, onClose, isNew }) {
 
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
         <button onClick={() => onSave(form)} disabled={!form.name.trim()}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: form.name.trim() ? "#7AE84A" : "#1E2E1F", color: form.name.trim() ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: form.name.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: form.name.trim() ? "#D4C24A" : "#1E2E1F", color: form.name.trim() ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: form.name.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
           {client && !isNew ? "Guardar cambios" : "Agregar cliente"}
         </button>
       </div>
@@ -1324,18 +1324,18 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
     <div style={{ padding: "0 16px 100px" }}>
       <div style={{ paddingTop: 24, paddingBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: 11, color: "#7AE84A", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Cartera</div>
+          <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Cartera</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#F2F5EE", marginTop: 2 }}>{clients.length} clientes</div>
         </div>
         <button onClick={onAddClient}
-          style={{ background: "#7AE84A", border: "none", borderRadius: 10, padding: "8px 14px", color: "#0D1F0F", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: "inherit" }}>
+          style={{ background: "#D4C24A", border: "none", borderRadius: 10, padding: "8px 14px", color: "#0D1F0F", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: "inherit" }}>
           <Icon d={ICONS.plus} size={16} color="#0D1F0F" /> Nuevo
         </button>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <button onClick={handleSyncSheets} disabled={syncing}
-          style={{ flex: 1, background: "#1E2E1F", border: "1px solid #7AE84A", borderRadius: 10, padding: "10px 0", color: "#7AE84A", fontSize: 13, fontWeight: 700, cursor: syncing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
+          style={{ flex: 1, background: "#1E2E1F", border: "1px solid #D4C24A", borderRadius: 10, padding: "10px 0", color: "#D4C24A", fontSize: 13, fontWeight: 700, cursor: syncing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
           <Icon d={ICONS.check} size={14} /> {syncing ? "Sincronizando..." : "Sincronizar con Sheets"}
         </button>
         <a href={`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`} target="_blank" rel="noreferrer"
@@ -1344,7 +1344,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
         </a>
       </div>
       {syncMsg && (
-        <div style={{ fontSize: 12, color: "#7AE84A", marginBottom: 12, textAlign: "center" }}>{syncMsg}</div>
+        <div style={{ fontSize: 12, color: "#D4C24A", marginBottom: 12, textAlign: "center" }}>{syncMsg}</div>
       )}
 
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente…"
@@ -1361,7 +1361,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
           { k: "consumidor", label: "Consumidor" },
         ].map(f => (
           <button key={f.k} onClick={() => setFilter(f.k)}
-            style={{ whiteSpace: "nowrap", padding: "6px 12px", borderRadius: 20, border: `1px solid ${filter === f.k ? "#7AE84A" : "#2E4A30"}`, background: filter === f.k ? "#0A2A10" : "#1E2E1F", color: filter === f.k ? "#7AE84A" : "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ whiteSpace: "nowrap", padding: "6px 12px", borderRadius: 20, border: `1px solid ${filter === f.k ? "#D4C24A" : "#2E4A30"}`, background: filter === f.k ? "#2A2410" : "#1E2E1F", color: filter === f.k ? "#D4C24A" : "#4A6B4C", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
             {f.label}
           </button>
         ))}
@@ -1465,7 +1465,7 @@ function SearchTab({ clients, onQuickAdd, onSelectClient }) {
         <input value={zona} onChange={e => setZona(e.target.value)} placeholder="Zona (ej: Quilmes)"
           style={{ flex: 1, background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
         <button onClick={handleBuscar} disabled={!zona.trim() || loading}
-          style={{ background: zona.trim() ? "#7AE84A" : "#1E2E1F", border: "none", borderRadius: 10, padding: "0 16px", color: zona.trim() ? "#0D1F0F" : "#2E4A30", fontWeight: 700, fontSize: 13, cursor: zona.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+          style={{ background: zona.trim() ? "#D4C24A" : "#1E2E1F", border: "none", borderRadius: 10, padding: "0 16px", color: zona.trim() ? "#0D1F0F" : "#2E4A30", fontWeight: 700, fontSize: 13, cursor: zona.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
           {loading ? "Buscando..." : "Buscar"}
         </button>
       </div>
@@ -1493,7 +1493,7 @@ function SearchTab({ clients, onQuickAdd, onSelectClient }) {
               ) : (
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                   <a href={getMapsUrl(place.formatted_address, place.name)} target="_blank" rel="noreferrer"
-                    style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#7AE84A" }}>
+                    style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#D4C24A" }}>
                     <Icon d={ICONS.map} size={16} />
                   </a>
                   <button onClick={() => onQuickAdd({
@@ -1506,7 +1506,7 @@ function SearchTab({ clients, onQuickAdd, onSelectClient }) {
                     lat: place.geometry?.location?.lat,
                     lng: place.geometry?.location?.lng,
                   })}
-                    style={{ background: "#0A2A10", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#7AE84A", cursor: "pointer" }}>
+                    style={{ background: "#2A2410", border: "1px solid #2E4A30", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#D4C24A", cursor: "pointer" }}>
                     <Icon d={ICONS.plus} size={16} />
                   </button>
                 </div>
@@ -1570,10 +1570,10 @@ function LoginScreen() {
       <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
         <img src="/logo-login.png" alt="Código Mosley" width={84} height={84}
-          style={{ marginBottom: 18, filter: "drop-shadow(0 8px 20px rgba(122, 232, 74, 0.2))" }} />
+          style={{ marginBottom: 18, filter: "drop-shadow(0 8px 20px rgba(212, 194, 74, 0.2))" }} />
 
         <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.06em", color: "#F2F5EE", textTransform: "uppercase" }}>Código</div>
-        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.1em", color: "#7AE84A", textTransform: "uppercase", marginTop: -4 }}>— Mosley —</div>
+        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.1em", color: "#D4C24A", textTransform: "uppercase", marginTop: -4 }}>— Mosley —</div>
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.22em", color: "#4A6B4C", textTransform: "uppercase", marginTop: 8, marginBottom: 28 }}>
           Cultura · Planta · Futuro
         </div>
@@ -1596,15 +1596,15 @@ function LoginScreen() {
           </div>
 
           {error && <div style={{ color: "#FF4D4D", fontSize: 12 }}>{error}</div>}
-          {info && <div style={{ color: "#7AE84A", fontSize: 12 }}>{info}</div>}
+          {info && <div style={{ color: "#D4C24A", fontSize: 12 }}>{info}</div>}
 
           <button type="submit" disabled={loading}
-            style={{ background: "#7AE84A", color: "#0D1F0F", border: "none", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginTop: 6 }}>
+            style={{ background: "#D4C24A", color: "#0D1F0F", border: "none", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginTop: 6 }}>
             {loading ? "Entrando..." : "Ingresar"}
           </button>
 
           <button type="button" onClick={handleForgotPassword}
-            style={{ background: "none", border: "none", color: "#7AE84A", fontSize: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "center", marginTop: 2 }}>
+            style={{ background: "none", border: "none", color: "#D4C24A", fontSize: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "center", marginTop: 2 }}>
             ¿Olvidaste tu contraseña?
           </button>
         </form>
@@ -1880,8 +1880,8 @@ function ReportsTab({ clients }) {
       <div style={{ fontSize: 18, fontWeight: 700, color: "#F2F5EE", marginBottom: 14 }}>Informe de visitas</div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        <button onClick={estaSemana} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid #2E4A30", background: "#1E2E1F", color: "#7AE84A", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Esta semana</button>
-        <button onClick={semanaPasada} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid #2E4A30", background: "#1E2E1F", color: "#7AE84A", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Semana pasada</button>
+        <button onClick={estaSemana} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid #2E4A30", background: "#1E2E1F", color: "#D4C24A", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Esta semana</button>
+        <button onClick={semanaPasada} style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "1px solid #2E4A30", background: "#1E2E1F", color: "#D4C24A", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Semana pasada</button>
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
@@ -2015,7 +2015,7 @@ export default function GrowCRM() {
     return (
       <div style={{ background: "#0D1F0F", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, fontFamily: "'Space Grotesk', sans-serif" }}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap');`}</style>
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#7AE84A" }} />
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#D4C24A" }} />
         <div style={{ color: "#4A6B4C", fontSize: 13 }}>Cargando clientes...</div>
       </div>
     );
@@ -2037,7 +2037,7 @@ export default function GrowCRM() {
 
         <div style={{ padding: "0 16px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#7AE84A" }} />
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#D4C24A" }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: "#4A6B4C", letterSpacing: "0.12em", textTransform: "uppercase" }}>Garden Highpro · CRM</span>
           </div>
           <button onClick={() => { localStorage.removeItem("grow_tab"); localStorage.removeItem("grow_selected_client"); signOut(auth); }} style={{ background: "none", border: "none", color: "#2E4A30", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Salir</button>
@@ -2058,8 +2058,8 @@ export default function GrowCRM() {
             { key: "reports", label: "Informes", icon: ICONS.report },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              style={{ flex: 1, padding: "12px 0 20px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: tab === t.key ? "#7AE84A" : "#2E4A30", transition: "color 0.2s", fontFamily: "inherit" }}>
-              <Icon d={t.icon} size={22} color={tab === t.key ? "#7AE84A" : "#2E4A30"} />
+              style={{ flex: 1, padding: "12px 0 20px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: tab === t.key ? "#D4C24A" : "#2E4A30", transition: "color 0.2s", fontFamily: "inherit" }}>
+              <Icon d={t.icon} size={22} color={tab === t.key ? "#D4C24A" : "#2E4A30"} />
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>{t.label}</span>
             </button>
           ))}
