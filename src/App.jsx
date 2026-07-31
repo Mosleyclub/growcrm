@@ -1532,7 +1532,7 @@ function LoginScreen() {
   useEffect(() => {
     document.body.style.margin = "0";
     document.documentElement.style.margin = "0";
-    document.body.style.background = "#0A140A";
+    document.body.style.background = "#0D1F0F";
   }, []);
 
   async function handleSubmit(e) {
@@ -1564,47 +1564,47 @@ function LoginScreen() {
   }
 
   return (
-    <div style={{ position: "relative", background: "radial-gradient(circle at 50% 15%, #16240F 0%, #0A140A 55%, #060B06 100%)", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 20px", fontFamily: "'Space Grotesk', sans-serif" }}>
+    <div style={{ position: "relative", background: "#0D1F0F", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 20px", fontFamily: "'Space Grotesk', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');`}</style>
 
       <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
         <img src="/logo-login.png" alt="Código Mosley" width={84} height={84}
-          style={{ marginBottom: 18, filter: "drop-shadow(0 8px 20px rgba(212, 194, 74, 0.25))" }} />
+          style={{ marginBottom: 18, filter: "drop-shadow(0 8px 20px rgba(122, 232, 74, 0.2))" }} />
 
-        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.06em", color: "#E9DFAE", textTransform: "uppercase" }}>Código</div>
-        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.1em", color: "#D4C24A", textTransform: "uppercase", marginTop: -4 }}>— Mosley —</div>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.22em", color: "#6B7A5E", textTransform: "uppercase", marginTop: 8, marginBottom: 28 }}>
+        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.06em", color: "#F2F5EE", textTransform: "uppercase" }}>Código</div>
+        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.1em", color: "#7AE84A", textTransform: "uppercase", marginTop: -4 }}>— Mosley —</div>
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.22em", color: "#4A6B4C", textTransform: "uppercase", marginTop: 8, marginBottom: 28 }}>
           Cultura · Planta · Futuro
         </div>
 
         <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <div style={{ position: "absolute", left: 14, color: "#5C6B52" }}><Icon d={ICONS.user} size={16} /></div>
+            <div style={{ position: "absolute", left: 14, color: "#4A6B4C" }}><Icon d={ICONS.user} size={16} /></div>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Usuario" required
-              style={{ width: "100%", background: "#16220F", border: "1px solid #2E3A24", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "14px 14px 14px 42px", fontFamily: "inherit", outline: "none" }} />
+              style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "14px 14px 14px 42px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
           </div>
 
           <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <div style={{ position: "absolute", left: 14, color: "#5C6B52" }}><Icon d={ICONS.lock} size={16} /></div>
+            <div style={{ position: "absolute", left: 14, color: "#4A6B4C" }}><Icon d={ICONS.lock} size={16} /></div>
             <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" required
-              style={{ width: "100%", background: "#16220F", border: "1px solid #2E3A24", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "14px 42px 14px 42px", fontFamily: "inherit", outline: "none" }} />
+              style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "14px 42px 14px 42px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
             <button type="button" onClick={() => setShowPassword(s => !s)}
-              style={{ position: "absolute", right: 12, background: "none", border: "none", color: "#5C6B52", cursor: "pointer", display: "flex" }}>
+              style={{ position: "absolute", right: 12, background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", display: "flex" }}>
               <Icon d={showPassword ? ICONS.eyeOff : ICONS.eye} size={16} />
             </button>
           </div>
 
-          {error && <div style={{ color: "#FF6B6B", fontSize: 12 }}>{error}</div>}
+          {error && <div style={{ color: "#FF4D4D", fontSize: 12 }}>{error}</div>}
           {info && <div style={{ color: "#7AE84A", fontSize: 12 }}>{info}</div>}
 
           <button type="submit" disabled={loading}
-            style={{ background: "linear-gradient(135deg, #C9B23E, #8FA33A)", color: "#0A140A", border: "none", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginTop: 6 }}>
+            style={{ background: "#7AE84A", color: "#0D1F0F", border: "none", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginTop: 6 }}>
             {loading ? "Entrando..." : "Ingresar"}
           </button>
 
           <button type="button" onClick={handleForgotPassword}
-            style={{ background: "none", border: "none", color: "#D4C24A", fontSize: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "center", marginTop: 2 }}>
+            style={{ background: "none", border: "none", color: "#7AE84A", fontSize: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "center", marginTop: 2 }}>
             ¿Olvidaste tu contraseña?
           </button>
         </form>
@@ -1634,6 +1634,26 @@ function inicioDeSemana(date) {
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+// Comprime una foto (dataURL) a un tamaño manejable para el PDF, sin tocar el original en Firestore
+function comprimirImagenParaPdf(dataUrl, maxDim = 700, calidad = 0.6) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > height && width > maxDim) { height = height * (maxDim / width); width = maxDim; }
+      else if (height > maxDim) { width = width * (maxDim / height); height = maxDim; }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", calidad));
+    };
+    img.onerror = () => resolve(dataUrl); // si falla, se usa la original como respaldo
+    img.src = dataUrl;
+  });
 }
 
 function ReportsTab({ clients }) {
@@ -1699,11 +1719,25 @@ function ReportsTab({ clients }) {
   async function descargarPdf() {
     setGenerandoPdf(true);
     try {
+      // Comprimir las fotos antes de armar el PDF (no toca lo guardado en Firestore)
+      const visitasParaPdf = await Promise.all(visitasEnRango.map(async v => {
+        if (!v.photos || !v.photos.length) return v;
+        const comprimidas = await Promise.all(v.photos.map(p => comprimirImagenParaPdf(p)));
+        return { ...v, photos: comprimidas };
+      }));
+
       const doc = new jsPDF({ unit: "mm", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const marginX = 15;
       let y = 20;
+
+      function nuevaPaginaSiNecesario(alturaNecesaria) {
+        if (y + alturaNecesaria > pageHeight - 15) {
+          doc.addPage();
+          y = 20;
+        }
+      }
 
       doc.setFontSize(16);
       doc.setFont(undefined, "bold");
@@ -1718,68 +1752,120 @@ function ReportsTab({ clients }) {
 
       doc.setFontSize(11);
       doc.setFont(undefined, "bold");
-      doc.text(`Total de visitas: ${visitasEnRango.length}    Comercios visitados: ${clientesUnicos}`, marginX, y);
+      doc.text(`Total de visitas: ${visitasParaPdf.length}    Comercios visitados: ${clientesUnicos}`, marginX, y);
       y += 6;
       doc.setFont(undefined, "normal");
       doc.text(`Caliente: ${conteoEstados.hot}   Tibio: ${conteoEstados.warm}   Frio: ${conteoEstados.cold}`, marginX, y);
       y += 10;
+
+      // Tabla resumen (para ver todo de un vistazo antes del detalle)
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.text("Resumen", marginX, y);
+      y += 6;
+      doc.setFontSize(9);
       doc.setDrawColor(200);
+      doc.text("Cliente", marginX, y);
+      doc.text("Fecha", marginX + 95, y);
+      doc.text("Estado", marginX + 130, y);
+      y += 2;
       doc.line(marginX, y, pageWidth - marginX, y);
-      y += 8;
-
-      function nuevaPaginaSiNecesario(alturaNecesaria) {
-        if (y + alturaNecesaria > pageHeight - 15) {
-          doc.addPage();
-          y = 20;
-        }
-      }
-
-      for (let i = 0; i < visitasEnRango.length; i++) {
-        const v = visitasEnRango[i];
-        nuevaPaginaSiNecesario(20);
-
-        doc.setFontSize(12);
-        doc.setFont(undefined, "bold");
-        doc.text(`${i + 1}. ${v.clientName}`, marginX, y);
+      y += 5;
+      doc.setFont(undefined, "normal");
+      visitasParaPdf.forEach(v => {
+        nuevaPaginaSiNecesario(6);
+        const nombreCorto = doc.splitTextToSize(v.clientName, 88)[0];
+        doc.text(nombreCorto, marginX, y);
+        doc.text(v.date, marginX + 95, y);
+        doc.text(STATUS_CONFIG[v.status]?.label || v.status || "-", marginX + 130, y);
         y += 5.5;
+      });
+      y += 4;
+      nuevaPaginaSiNecesario(10);
+      doc.setDrawColor(150);
+      doc.line(marginX, y, pageWidth - marginX, y);
+      y += 10;
 
-        doc.setFontSize(9);
-        doc.setFont(undefined, "normal");
-        doc.text(`${v.date}  -  Estado: ${STATUS_CONFIG[v.status]?.label || v.status}`, marginX, y);
-        y += 5;
+      // Detalle, agrupado por día
+      const diasOrdenados = [];
+      const porDia = {};
+      visitasParaPdf.forEach(v => {
+        if (!porDia[v.date]) { porDia[v.date] = []; diasOrdenados.push(v.date); }
+        porDia[v.date].push(v);
+      });
 
-        if (v.clientAddress && !/^https?:\/\//i.test(v.clientAddress)) {
-          doc.text(v.clientAddress, marginX, y, { maxWidth: pageWidth - marginX * 2 });
+      let contador = 0;
+      diasOrdenados.forEach(fechaStr => {
+        const fechaObj = parseFechaVisita(fechaStr);
+        const nombreDia = fechaObj ? fechaObj.toLocaleDateString("es-AR", { weekday: "long" }) : "";
+        const nombreDiaCap = nombreDia ? nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1) : "";
+
+        nuevaPaginaSiNecesario(14);
+        doc.setFillColor(230, 230, 220);
+        doc.rect(marginX, y - 4.5, pageWidth - marginX * 2, 7, "F");
+        doc.setFontSize(10);
+        doc.setFont(undefined, "bold");
+        doc.text(`${nombreDiaCap} ${fechaStr}`, marginX + 2, y);
+        y += 9;
+
+        porDia[fechaStr].forEach(v => {
+          contador++;
+          nuevaPaginaSiNecesario(20);
+
+          doc.setFontSize(12);
+          doc.setFont(undefined, "bold");
+          doc.text(`${contador}. ${v.clientName}`, marginX, y);
+          y += 5.5;
+
+          doc.setFontSize(9);
+          doc.setFont(undefined, "normal");
+          doc.text(`Estado: ${STATUS_CONFIG[v.status]?.label || v.status}`, marginX, y);
           y += 5;
-        }
 
-        if (v.notes) {
-          nuevaPaginaSiNecesario(10);
-          const lineas = doc.splitTextToSize(v.notes, pageWidth - marginX * 2);
-          doc.text(lineas, marginX, y);
-          y += lineas.length * 4.5 + 2;
-        }
+          if (v.clientAddress && !/^https?:\/\//i.test(v.clientAddress)) {
+            doc.text(v.clientAddress, marginX, y, { maxWidth: pageWidth - marginX * 2 });
+            y += 5;
+          }
 
-        if (v.photos && v.photos.length) {
-          const imgSize = 35;
-          let x = marginX;
-          nuevaPaginaSiNecesario(imgSize + 5);
-          v.photos.forEach(p => {
-            if (x + imgSize > pageWidth - marginX) {
-              x = marginX;
-              y += imgSize + 3;
-              nuevaPaginaSiNecesario(imgSize + 5);
-            }
-            try { doc.addImage(p, x, y, imgSize, imgSize, undefined, "FAST"); } catch (e) {}
-            x += imgSize + 3;
-          });
-          y += imgSize + 8;
-        }
+          if (v.notes) {
+            nuevaPaginaSiNecesario(10);
+            const lineas = doc.splitTextToSize(v.notes, pageWidth - marginX * 2);
+            doc.text(lineas, marginX, y);
+            y += lineas.length * 4.5 + 2;
+          }
 
-        y += 4;
-        doc.setDrawColor(230);
-        doc.line(marginX, y, pageWidth - marginX, y);
-        y += 8;
+          if (v.photos && v.photos.length) {
+            const imgSize = 32;
+            let x = marginX;
+            nuevaPaginaSiNecesario(imgSize + 5);
+            v.photos.forEach(p => {
+              if (x + imgSize > pageWidth - marginX) {
+                x = marginX;
+                y += imgSize + 3;
+                nuevaPaginaSiNecesario(imgSize + 5);
+              }
+              try { doc.addImage(p, "JPEG", x, y, imgSize, imgSize, undefined, "FAST"); } catch (e) {}
+              x += imgSize + 3;
+            });
+            y += imgSize + 8;
+          }
+
+          y += 4;
+          doc.setDrawColor(230);
+          doc.line(marginX, y, pageWidth - marginX, y);
+          y += 8;
+        });
+      });
+
+      // Numeración de página
+      const totalPaginas = doc.internal.getNumberOfPages();
+      for (let p = 1; p <= totalPaginas; p++) {
+        doc.setPage(p);
+        doc.setFontSize(8);
+        doc.setFont(undefined, "normal");
+        doc.setTextColor(150);
+        doc.text(`Página ${p} de ${totalPaginas}`, pageWidth - marginX, pageHeight - 8, { align: "right" });
+        doc.setTextColor(0);
       }
 
       doc.save(`informe-visitas-${desde}-a-${hasta}.pdf`);
