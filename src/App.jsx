@@ -217,6 +217,7 @@ const TYPE_LABEL = {
 // ─── FIRESTORE SYNC ─────────────────────────────────────────────────────────
 function useFirestoreClients() {
   const [clients, setClients] = useState([]);
+  const [deletedIds, setDeletedIds] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const seedingRef = useRef(false);
 
@@ -239,6 +240,8 @@ function useFirestoreClients() {
         return;
       }
       const list = snapshot.docs.map(d => ({ ...d.data(), id: d.id })).filter(c => !c.deleted);
+      const borrados = snapshot.docs.filter(d => d.data().deleted).map(d => d.id);
+      setDeletedIds(new Set(borrados.map(String)));
       setClients(list);
       setLoading(false);
     });
@@ -277,7 +280,7 @@ function useFirestoreClients() {
   }
 }
 
-  return { clients, loading, updateClient, addClient, deleteClient };
+  return { clients, deletedIds, loading, updateClient, addClient, deleteClient };
 }
 
 // ─── ICONS ──────────────────────────────────────────────────────────────────
@@ -309,10 +312,18 @@ const ICONS = {
 };
 
 // Detecta si una direccion guardada es en realidad un link de Maps
-function getMapsUrl(address, fallbackName) {
-  if (!address) return `https://maps.google.com/?q=${encodeURIComponent(fallbackName)}`;
-  const isLink = /^https?:\/\//i.test(address.trim());
-  return isLink ? address.trim() : `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+function getMapsUrl(address, fallbackName, lat, lng) {
+  // Prioridad 1: coordenada exacta guardada (lo más confiable, nunca falla)
+  if (lat && lng) return `https://maps.google.com/?q=${lat},${lng}`;
+  // Prioridad 2: si guardamos un link de Maps, usarlo tal cual
+  if (address) {
+    const isLink = /^https?:\/\//i.test(address.trim());
+    if (isLink) return address.trim();
+    // Prioridad 3: dirección de texto
+    return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+  }
+  // Último recurso: buscar por nombre (menos confiable, puede traer otro negocio)
+  return `https://maps.google.com/?q=${encodeURIComponent(fallbackName)}`;
 }
 
 // ─── NOMBRE / MATCHING DE CLIENTES (única fuente de verdad) ────────────────
@@ -610,9 +621,11 @@ function TodayTab({ clients, onClientSelect }) {
 
   function getRouteUrl() {
     const queries = stopsOrdenadas.map(evt => {
-      const addr = evt.client.address.trim();
+      const c = evt.client;
+      if (c.lat && c.lng) return `${c.lat},${c.lng}`;
+      const addr = (c.address || "").trim();
       const isLink = /^https?:\/\//i.test(addr);
-      return encodeURIComponent(isLink ? evt.client.name : addr);
+      return encodeURIComponent(isLink ? c.name : (addr || c.name));
     });
    if (queries.length === 0) return null;
     if (queries.length === 1) return `https://maps.google.com/?q=${queries[0]}`;
@@ -699,7 +712,7 @@ function TodayTab({ clients, onClientSelect }) {
                     style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                     <Icon d={ICONS.whatsapp} size={14} /> WhatsApp
                   </a>
-                  <a href={getMapsUrl(evt.client.address, evt.client.name)} target="_blank" rel="noreferrer"
+                  <a href={getMapsUrl(evt.client.address, evt.client.name, evt.client.lat, evt.client.lng)} target="_blank" rel="noreferrer"
                     onClick={e => e.stopPropagation()}
                     style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                     <Icon d={ICONS.map} size={14} /> Maps
@@ -1014,7 +1027,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
             style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon d={ICONS.whatsapp} size={16} /> WhatsApp
           </a>
-          <a href={getMapsUrl(client.address, client.name)} target="_blank" rel="noreferrer"
+          <a href={getMapsUrl(client.address, client.name, client.lat, client.lng)} target="_blank" rel="noreferrer"
             style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon d={ICONS.map} size={16} /> {client.address ? "Maps" : "Buscar ubicación"}
           </a>
@@ -1094,7 +1107,18 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
                 <div key={v.id} style={{ background: "#1E2E1F", borderRadius: 12, padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
-                    <ThermoBadge status={v.status} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <ThermoBadge status={v.status} />
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`¿Borrar la visita del ${v.date}? No se puede deshacer.`)) {
+                            onUpdate({ ...client, visits: client.visits.filter(x => x.id !== v.id) });
+                          }
+                        }}
+                        style={{ background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", padding: 2, display: "flex" }}>
+                        <Icon d={ICONS.trash} size={14} />
+                      </button>
+                    </div>
                   </div>
                   <div style={{ fontSize: 13, color: "#C8D9C9", lineHeight: 1.5, marginBottom: v.photos?.length ? 10 : 0 }}>{v.notes}</div>
                   {v.photos?.length > 0 && (
@@ -1184,7 +1208,7 @@ function ClientForm({ client, onSave, onClose, isNew }) {
 }
 
 // ─── CLIENTS TAB ─────────────────────────────────────────────────────────────
-function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawAddClient, rawUpdateClient }) {
+function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDeleteClient, rawAddClient, rawUpdateClient }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [syncing, setSyncing] = useState(false);
@@ -1254,14 +1278,16 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
       }
     }
 
-    const nuevos = [...sheetMap.keys()].filter(id => !localMap.has(id));
+    const nuevos = [...sheetMap.keys()].filter(id => !localMap.has(id) && !deletedIds.has(String(id)));
     if (nuevos.length > 20) {
       const seguir = window.confirm(
         `Atención: ${nuevos.length} clientes de la planilla no se pudieron emparejar con la app (podrían tratarse como nuevos y pisar datos existentes). ¿Seguro que querés continuar?`
       );
       if (!seguir) { setSyncing(false); setSyncMsg("Sincronización cancelada."); setTimeout(() => setSyncMsg(""), 4000); return; }
     }
+    let omitidosPorBorrados = 0;
     for (const [id, sheetC] of sheetMap) {
+      if (deletedIds.has(String(id))) { omitidosPorBorrados++; continue; }
       if (!localMap.has(id)) {
         let toAdd = sheetC;
         if (sheetC.address) {
@@ -1297,6 +1323,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
     setSyncMsg("Actualizando planilla...");
     const finalMap = new Map(localMap);
     for (const [id, sheetC] of sheetMap) {
+      if (deletedIds.has(String(id))) continue;
       if (!finalMap.has(id)) finalMap.set(id, sheetC);
       else {
         const localC = finalMap.get(id);
@@ -1310,7 +1337,7 @@ function ClientsTab({ clients, onClientSelect, onAddClient, onDeleteClient, rawA
     await writeSheetRows(rowsToWrite);
 
     setSyncing(false);
-    setSyncMsg(`¡Sincronizado! (${finalClients.length} clientes, ${actualizados} actualizados, ${geocodificados} geocodificados)`);
+    setSyncMsg(`¡Sincronizado! (${finalClients.length} clientes, ${actualizados} actualizados, ${geocodificados} geocodificados${omitidosPorBorrados > 0 ? `, ${omitidosPorBorrados} borrados respetados` : ""})`);
     setTimeout(() => setSyncMsg(""), 4000);
   }
 
@@ -1958,7 +1985,7 @@ function ReportsTab({ clients }) {
 
 export default function GrowCRM() {
   const [user, setUser] = useState(undefined);
-  const { clients, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient } = useFirestoreClients();
+  const { clients, deletedIds, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient } = useFirestoreClients();
   const [tab, setTab] = useState(() => localStorage.getItem("grow_tab") || "today");
   const [prefillClient, setPrefillClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -2045,7 +2072,7 @@ export default function GrowCRM() {
 
         <div style={{ paddingBottom: 0 }}>
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
-          {tab === "clients" && <ClientsTab clients={clients} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
+          {tab === "clients" && <ClientsTab clients={clients} deletedIds={deletedIds} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
           {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} onSelectClient={setSelectedClient} />}
           {tab === "reports" && <ReportsTab clients={clients} />}
         </div>
