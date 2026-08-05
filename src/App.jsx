@@ -619,7 +619,7 @@ function TodayTab({ clients, onClientSelect }) {
 
   const stopsOrdenadas = ordenarPorCercania(stopsWithAddress, miUbicacion);
 
-  function getRouteUrl() {
+  function getRouteUrls() {
     const queries = stopsOrdenadas.map(evt => {
       const c = evt.client;
       if (c.lat && c.lng) return `${c.lat},${c.lng}`;
@@ -627,12 +627,25 @@ function TodayTab({ clients, onClientSelect }) {
       const isLink = /^https?:\/\//i.test(addr);
       return encodeURIComponent(isLink ? c.name : (addr || c.name));
     });
-   if (queries.length === 0) return null;
-    if (queries.length === 1) return `https://maps.google.com/?q=${queries[0]}`;
-    const destination = queries[queries.length - 1];
-    const waypoints = queries.slice(0, -1).join("|");
-    const origin = miUbicacion ? `&origin=${miUbicacion.lat},${miUbicacion.lng}` : "";
-    return `https://www.google.com/maps/dir/?api=1${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+    if (queries.length === 0) return [];
+    if (queries.length === 1) return [`https://maps.google.com/?q=${queries[0]}`];
+
+    // Google no banca bien mas de ~9-10 paradas en un solo link: partimos en tandas
+    const MAX_POR_TANDA = 9;
+    const tandas = [];
+    for (let i = 0; i < queries.length; i += MAX_POR_TANDA - 1) {
+      // cada tanda arranca donde termino la anterior, para no cortar el recorrido
+      const desde = Math.max(0, i === 0 ? 0 : i);
+      tandas.push(queries.slice(desde, desde + MAX_POR_TANDA));
+    }
+
+    return tandas.map(grupo => {
+      if (grupo.length === 1) return `https://maps.google.com/?q=${grupo[0]}`;
+      const destination = grupo[grupo.length - 1];
+      const waypoints = grupo.slice(0, -1).join("|");
+      const origin = (grupo === tandas[0] && miUbicacion) ? `&origin=${miUbicacion.lat},${miUbicacion.lng}` : "";
+      return `https://www.google.com/maps/dir/?api=1${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+    });
   }
   if (showNewVisitForm) {
     return <ScheduleVisitForm clients={clients} initialDate={viewedDate} onClose={() => setShowNewVisitForm(false)} onSaved={() => { setShowNewVisitForm(false); loadEvents(); }} />;
@@ -654,10 +667,14 @@ function TodayTab({ clients, onClientSelect }) {
       </div>
 
       {stopsWithAddress.length >= 2 && (
-        <a href={getRouteUrl()} target="_blank" rel="noreferrer"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#2A2410", border: "1px solid #D4C24A", borderRadius: 10, padding: "11px 0", color: "#D4C24A", fontSize: 13, fontWeight: 700, textDecoration: "none", marginBottom: 16 }}>
-          <Icon d={ICONS.map} size={16} /> Ver recorrido completo ({stopsWithAddress.length} paradas)
-        </a>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          {getRouteUrls().map((url, i, arr) => (
+            <a key={i} href={url} target="_blank" rel="noreferrer"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#2A2410", border: "1px solid #D4C24A", borderRadius: 10, padding: "11px 0", color: "#D4C24A", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+              <Icon d={ICONS.map} size={16} /> {arr.length > 1 ? `Recorrido parte ${i + 1} de ${arr.length}` : `Ver recorrido completo (${stopsWithAddress.length} paradas)`}
+            </a>
+          ))}
+        </div>
       )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, position: "relative" }}>
