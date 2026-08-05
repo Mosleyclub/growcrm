@@ -567,7 +567,9 @@ function TodayTab({ clients, onClientSelect }) {
     .map(evt => ({ ...evt, client: getMatchedClient(evt.title, clients) }))
     .filter(evt => evt.client);
 
-  const stopsWithAddress = matched.filter(evt => evt.client.address || (evt.client.lat && evt.client.lng));
+  // Se incluyen todos los que tienen cliente emparejado, aunque no tengan dirección cargada
+  // (esos van a usar el nombre como último recurso al armar el link de Maps)
+  const stopsWithAddress = matched;
 
   function ordenarPorCercania(stops, origen) {
     const conCoords = stops.filter(evt => evt.client.lat && evt.client.lng);
