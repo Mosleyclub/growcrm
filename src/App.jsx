@@ -357,7 +357,7 @@ function getMatchedClient(title, clients) {
   let bestScore = 0;
 
   for (const c of clients) {
-    const nameWords = wordsOf(c.name);
+    const nameWords = [...new Set(wordsOf(c.name))]; // únicas, para que una palabra repetida por error no infle el puntaje
     const nameCompact = compactOf(c.name);
     if (!nameWords.length) continue;
 
