@@ -616,7 +616,8 @@ function TodayTab({ clients, onClientSelect }) {
       restantes.splice(mejorIdx, 1);
     }
 
-    return [...ordenadas, ...sinCoords];
+    const mejorado = mejorar2opt(ordenadas, origen);
+    return [...mejorado, ...sinCoords];
   }
 
   const stopsOrdenadas = ordenarPorCercania(stopsWithAddress, miUbicacion);
@@ -871,6 +872,34 @@ function permutar(arr) {
   for (let i = 0; i < arr.length; i++) {
     const resto = [...arr.slice(0, i), ...arr.slice(i + 1)];
     for (const p of permutar(resto)) resultado.push([arr[i], ...p]);
+  }
+  return resultado;
+}
+
+// Refinamiento 2-opt: prueba invertir tramos del recorrido y se queda con la
+// version mas corta, hasta que ya no encuentra ninguna mejora. Corrige los
+// cruces/zigzags que puede dejar el metodo de "vecino mas cercano".
+function mejorar2opt(orden, origen) {
+  if (orden.length < 4) return orden;
+  let resultado = [...orden];
+  let mejorDistancia = distanciaTotalRecorrido(origen, resultado);
+  let siguioMejorando = true;
+  let vueltas = 0;
+
+  while (siguioMejorando && vueltas < 30) {
+    siguioMejorando = false;
+    vueltas++;
+    for (let i = 0; i < resultado.length - 1; i++) {
+      for (let j = i + 1; j < resultado.length; j++) {
+        const candidato = [...resultado.slice(0, i), ...resultado.slice(i, j + 1).reverse(), ...resultado.slice(j + 1)];
+        const dist = distanciaTotalRecorrido(origen, candidato);
+        if (dist < mejorDistancia) {
+          resultado = candidato;
+          mejorDistancia = dist;
+          siguioMejorando = true;
+        }
+      }
+    }
   }
   return resultado;
 }
