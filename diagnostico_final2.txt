@@ -1,0 +1,73 @@
+Total de clientes activos: 747
+
+======================================================================
+
+TITULO: "visitar bernal mint growshop"
+  -> Matcheo con: "Leo Bernal Mint Grow" (id: 129)  [puntaje: 30]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7109169, -58.28111199999999
+     address: https://maps.app.goo.gl/FL6ZMjKFYnpy3rJ18?g_st=ac
+
+TITULO: "visitar desde la raiz growshop"
+  -> Matcheo con: "Desde la raíz growshop " (id: 1783025611687)  [puntaje: 45]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7405318, -58.28563089999999
+     address: https://maps.app.goo.gl/oJm7QZ5SbzrWZf9c6?g_st=ac
+
+TITULO: "visitar vatolux growshop"
+  -> Matcheo con: "Ezequiel Vatolux Growshop" (id: 1785962670986)  [puntaje: 20]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7198028, -58.269343
+     address: https://maps.app.goo.gl/WVDwdfzLbjR2p4S68
+
+TITULO: "visitar wood growshop"
+  -> Matcheo con: "Mauro Wood Growshop Quilmes" (id: 309)  [puntaje: 20]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7371622, -58.2651899
+     address: https://maps.app.goo.gl/N3ASyR6ecx3zYVbi7
+
+TITULO: "visitar maria chuzena growshop"
+  -> Matcheo con: "Sebas Maria chuzena growshop" (id: 1785962811897)  [puntaje: 30]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7001407, -58.3254496
+     address: https://maps.app.goo.gl/eAvEP7xJAhFk9ysz6
+
+TITULO: "visitar kaya growshop"
+  -> Matcheo con: "Agustin Kaya Growshop" (id: 1785962911506)  [puntaje: 20]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7514058, -58.2385961
+     address: https://maps.app.goo.gl/GsnBNmQL9kf6VkoR9
+  !! ALERTA: casi empata con "Maria Kaya Boom Growshop" (puntaje: 20) - matching ambiguo, revisar nombres
+
+TITULO: "visitar wally growshop"
+  -> Matcheo con: "Wally Growshop" (id: 1785963170694)  [puntaje: 29]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7606978, -58.2063094
+     address: https://maps.app.goo.gl/C9og7e6TmPrU2y5fA
+
+TITULO: "visitar casa jungla growshop"
+  -> Matcheo con: "Casa Jungla Growshop" (id: 1785963318295)  [puntaje: 44]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7623258, -58.2133258
+     address: https://maps.app.goo.gl/bidBdCWdZKm3FrQ98
+
+TITULO: "visitar begui growshop"
+  -> Matcheo con: "Gadiel Grow Mr. 420" (id: 100)  [puntaje: 10]
+     Estado: OK coordenada guardada
+     lat/lng: -34.8262577, -58.1862739
+     address: https://maps.app.goo.gl/H7WLTwGxey6KyBxf9
+  !! ALERTA: casi empata con "Hernan Divino Grow" (puntaje: 10) - matching ambiguo, revisar nombres
+
+TITULO: "visitar germinate growshop"
+  -> Matcheo con: "Gaston Germinate Nuevo Growshop" (id: 635)  [puntaje: 20]
+     Estado: OK coordenada guardada
+     lat/lng: -34.7797327, -58.19890479999999
+     address: https://maps.app.goo.gl/Nm7QrDho4HxAZ4e5A?g_st=ac
+
+TITULO: "visitar mario growshop"
+  -> Matcheo con: "Mario Growshop" (id: 364)  [puntaje: 29]
+     Estado: OK coordenada guardada
+     lat/lng: -34.8038158, -58.27506789999999
+     address: https://maps.app.goo.gl/WmLf6rE3ZHYhpDEJ9?g_st=ac
+
+======================================================================

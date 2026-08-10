@@ -1308,7 +1308,7 @@ function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDelete
         const localTime = localC.lastModified || 0;
         const sheetTime = sheetC.lastModified || 0;
         if (sheetTime >= localTime) {
-          let merged = { ...localC, ...sheetC, visits: localC.visits || [] };
+          let merged = { ...localC, ...sheetC, visits: localC.visits || [], lastModified: Date.now() };
           const addressChanged = (sheetC.address || "") !== (localC.address || "");
           if (addressChanged && sheetC.address) {
             setSyncMsg(`Geocodificando: ${sheetC.name}...`);
@@ -1321,6 +1321,7 @@ function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDelete
             }
           }
           await rawUpdateClient(merged);
+          localMap.set(id, merged);
           actualizados++;
         }
       }
