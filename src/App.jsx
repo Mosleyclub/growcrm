@@ -966,7 +966,10 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
   }
 
   function handleSaveAddress() {
-    onUpdate({ ...client, address: addressInput.trim() });
+    const direccionCambio = addressInput.trim() !== (client.address || "");
+    const updated = { ...client, address: addressInput.trim() };
+    if (direccionCambio) { updated.lat = null; updated.lng = null; }
+    onUpdate(updated);
     setEditingAddress(false);
   }
 
@@ -2159,7 +2162,13 @@ export default function GrowCRM() {
         <ClientForm client={prefillClient} isNew onSave={c => { addClient(c); setPrefillClient(null); }} onClose={() => setPrefillClient(null)} />
       )}
       {editClient && (
-        <ClientForm client={editClient} onSave={updated => { updateClient({ ...editClient, ...updated }); setEditClient(null); }} onClose={() => setEditClient(null)} />
+        <ClientForm client={editClient} onSave={updated => {
+          const direccionCambio = (updated.address || "") !== (editClient.address || "");
+          const merged = { ...editClient, ...updated };
+          if (direccionCambio) { merged.lat = null; merged.lng = null; }
+          updateClient(merged);
+          setEditClient(null);
+        }} onClose={() => setEditClient(null)} />
       )}
     </>
   );
