@@ -517,14 +517,19 @@ function TodayTab({ clients, onClientSelect }) {
   }
   const [showNewVisitForm, setShowNewVisitForm] = useState(false);
   const [miUbicacion, setMiUbicacion] = useState(null);
+  const [actualizandoUbicacion, setActualizandoUbicacion] = useState(false);
+
+  function actualizarUbicacion() {
+    if (!navigator.geolocation) return;
+    setActualizandoUbicacion(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => { setMiUbicacion({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setActualizandoUbicacion(false); },
+      () => setActualizandoUbicacion(false)
+    );
+  }
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => setMiUbicacion({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {}
-      );
-    }
+    actualizarUbicacion();
   }, []);
 
   const viewedDate = new Date();
@@ -646,7 +651,7 @@ function TodayTab({ clients, onClientSelect }) {
       if (grupo.length === 1) return `https://maps.google.com/?q=${grupo[0]}`;
       const destination = grupo[grupo.length - 1];
       const waypoints = grupo.slice(0, -1).join("|");
-      const origin = (grupo === tandas[0] && miUbicacion) ? `&origin=${miUbicacion.lat},${miUbicacion.lng}` : "";
+      const origin = miUbicacion ? `&origin=${miUbicacion.lat},${miUbicacion.lng}` : "";
       return `https://www.google.com/maps/dir/?api=1${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
     });
   }
@@ -671,6 +676,10 @@ function TodayTab({ clients, onClientSelect }) {
 
       {stopsWithAddress.length >= 2 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          <button onClick={actualizarUbicacion} disabled={actualizandoUbicacion}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: "1px dashed #4A6B4C", borderRadius: 8, padding: "7px 0", color: "#4A6B4C", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <Icon d={ICONS.pin || ICONS.map} size={13} /> {actualizandoUbicacion ? "Actualizando ubicación..." : miUbicacion ? "Actualizar mi ubicación (tocá antes de salir)" : "Activar mi ubicación"}
+          </button>
           {getRouteUrls().map((url, i, arr) => (
             <a key={i} href={url} target="_blank" rel="noreferrer"
               style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#2A2410", border: "1px solid #D4C24A", borderRadius: 10, padding: "11px 0", color: "#D4C24A", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
@@ -764,11 +773,19 @@ function TodayTab({ clients, onClientSelect }) {
 }
 
 // ─── VISIT FORM ──────────────────────────────────────────────────────────────
-function VisitForm({ client, onSave, onClose }) {
+function VisitForm({ client, onSave, onClose, guardando }) {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState(client.status);
   const [photos, setPhotos] = useState([]);
   const fileRef = useRef();
+
+  useEffect(() => {
+    function avisar(e) {
+      if (guardando) { e.preventDefault(); e.returnValue = ""; return ""; }
+    }
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [guardando]);
 
   function handlePhoto(e) {
     const files = Array.from(e.target.files);
@@ -794,7 +811,7 @@ function VisitForm({ client, onSave, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0D1F0F", zIndex: 200, display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#D4C24A", cursor: "pointer", padding: 4 }}>
+        <button onClick={guardando ? undefined : onClose} disabled={guardando} style={{ background: "none", border: "none", color: guardando ? "#4A6B4C" : "#D4C24A", cursor: guardando ? "default" : "pointer", padding: 4 }}>
           <Icon d={ICONS.back} size={22} />
         </button>
         <div>
@@ -844,9 +861,9 @@ function VisitForm({ client, onSave, onClose }) {
       </div>
 
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
-        <button onClick={handleSave} disabled={!notes.trim()}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() ? "#D4C24A" : "#1E2E1F", color: notes.trim() ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
-          Guardar visita
+        <button onClick={handleSave} disabled={!notes.trim() || guardando}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() && !guardando ? "#D4C24A" : "#1E2E1F", color: notes.trim() && !guardando ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() && !guardando ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
+          {guardando ? "Guardando... no cierres ni refresques" : "Guardar visita"}
         </button>
       </div>
     </div>
@@ -931,6 +948,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
   const [showNearby, setShowNearby] = useState(false);
   const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
   const [showVisitForm, setShowVisitForm] = useState(false);
+  const [guardandoVisita, setGuardandoVisita] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressInput, setAddressInput] = useState(client.address || "");
  const [editingName, setEditingName] = useState(false);
@@ -955,13 +973,15 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
 
   
 
- function handleSaveVisit(visit, newStatus) {
+ async function handleSaveVisit(visit, newStatus) {
     const updated = {
       ...client,
       status: newStatus,
       visits: [visit, ...(client.visits || [])],
     };
-    onUpdate(updated);
+    setGuardandoVisita(true);
+    await onUpdate(updated);
+    setGuardandoVisita(false);
     setShowVisitForm(false);
   }
 
@@ -988,7 +1008,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
     setEditingEncargado(false);
   }
 
-  if (showVisitForm) return <VisitForm client={client} onSave={handleSaveVisit} onClose={() => setShowVisitForm(false)} />;
+  if (showVisitForm) return <VisitForm client={client} onSave={handleSaveVisit} onClose={() => setShowVisitForm(false)} guardando={guardandoVisita} />;
 
   const cfg = STATUS_CONFIG[client.status];
 
@@ -2068,10 +2088,10 @@ export default function GrowCRM() {
     }
   }, [clients]);
 
-  function updateClient(updated) {
+  async function updateClient(updated) {
     const stamped = { ...updated, lastModified: Date.now() };
-    fsUpdateClient(stamped);
     setSelectedClient(stamped);
+    await fsUpdateClient(stamped);
   }
 
   function addClient(form) {
