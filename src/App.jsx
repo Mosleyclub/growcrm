@@ -312,14 +312,16 @@ const ICONS = {
 };
 
 // Detecta si una direccion guardada es en realidad un link de Maps
-function getMapsUrl(address, fallbackName, lat, lng) {
-  // Prioridad 1: coordenada exacta guardada (lo más confiable, nunca falla)
+function getMapsUrl(address, fallbackName, lat, lng, placeId) {
+  // Prioridad 1: Place ID de Google (muestra el nombre real del negocio, no solo un pin)
+  if (placeId) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackName)}&query_place_id=${placeId}`;
+  // Prioridad 2: coordenada exacta guardada (lo más confiable si no hay Place ID)
   if (lat && lng) return `https://maps.google.com/?q=${lat},${lng}`;
-  // Prioridad 2: si guardamos un link de Maps, usarlo tal cual
+  // Prioridad 3: si guardamos un link de Maps, usarlo tal cual
   if (address) {
     const isLink = /^https?:\/\//i.test(address.trim());
     if (isLink) return address.trim();
-    // Prioridad 3: dirección de texto
+    // Prioridad 4: dirección de texto
     return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
   }
   // Último recurso: buscar por nombre (menos confiable, puede traer otro negocio)
@@ -630,6 +632,7 @@ function TodayTab({ clients, onClientSelect }) {
   function getRouteUrls() {
     const queries = stopsOrdenadas.map(evt => {
       const c = evt.client;
+      if (c.placeId) return `place_id:${c.placeId}`;
       if (c.lat && c.lng) return `${c.lat},${c.lng}`;
       const addr = (c.address || "").trim();
       const isLink = /^https?:\/\//i.test(addr);
@@ -741,7 +744,7 @@ function TodayTab({ clients, onClientSelect }) {
                     style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                     <Icon d={ICONS.whatsapp} size={14} /> WhatsApp
                   </a>
-                  <a href={getMapsUrl(evt.client.address, evt.client.name, evt.client.lat, evt.client.lng)} target="_blank" rel="noreferrer"
+                  <a href={getMapsUrl(evt.client.address, evt.client.name, evt.client.lat, evt.client.lng, evt.client.placeId)} target="_blank" rel="noreferrer"
                     onClick={e => e.stopPropagation()}
                     style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                     <Icon d={ICONS.map} size={14} /> Maps
@@ -1098,7 +1101,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
             style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon d={ICONS.whatsapp} size={16} /> WhatsApp
           </a>
-          <a href={getMapsUrl(client.address, client.name, client.lat, client.lng)} target="_blank" rel="noreferrer"
+          <a href={getMapsUrl(client.address, client.name, client.lat, client.lng, client.placeId)} target="_blank" rel="noreferrer"
             style={{ flex: 1, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon d={ICONS.map} size={16} /> {client.address ? "Maps" : "Buscar ubicación"}
           </a>
