@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { db, auth } from "./firebase";
-import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "firebase/auth";
 import { jsPDF } from "jspdf";
 
@@ -255,6 +255,16 @@ function useFirestoreClients() {
       console.error("Error updating client:", e);
     }
   }
+  // Suma una visita de forma atomica: no depende de ninguna copia del cliente
+  // que pueda estar desactualizada, por eso no se puede perder por una carrera
+  // entre dos guardados al mismo tiempo.
+  async function addVisitToClient(clientId, visit, newStatus) {
+    await updateDoc(doc(db, "clients", String(clientId)), {
+      visits: arrayUnion(visit),
+      status: newStatus,
+      lastModified: Date.now(),
+    });
+  }
   async function addClient(client) {
     try {
       let toSave = { ...client };
@@ -280,7 +290,7 @@ function useFirestoreClients() {
   }
 }
 
-  return { clients, deletedIds, loading, updateClient, addClient, deleteClient };
+  return { clients, deletedIds, loading, updateClient, addClient, deleteClient, addVisitToClient };
 }
 
 // ─── ICONS ──────────────────────────────────────────────────────────────────
@@ -947,7 +957,7 @@ function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados 
     .slice(0, maxResultados);
 }
 
-function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelectClient }) {
+function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDelete, onSelectClient }) {
   const [showNearby, setShowNearby] = useState(false);
   const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
   const [showVisitForm, setShowVisitForm] = useState(false);
@@ -977,13 +987,14 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
   
 
  async function handleSaveVisit(visit, newStatus) {
-    const updated = {
-      ...client,
-      status: newStatus,
-      visits: [visit, ...(client.visits || [])],
-    };
     setGuardandoVisita(true);
-    await onUpdate(updated);
+    try {
+      await onAddVisit(client.id, visit, newStatus);
+    } catch (e) {
+      alert("No se pudo guardar la visita, probá de nuevo: " + e.message);
+      setGuardandoVisita(false);
+      return;
+    }
     setGuardandoVisita(false);
     setShowVisitForm(false);
   }
@@ -1177,7 +1188,7 @@ function ClientDetail({ client, onBack, onUpdate, allClients, onDelete, onSelect
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {client.visits.map(v => (
+              {[...client.visits].sort((a, b) => (b.id || 0) - (a.id || 0)).map(v => (
                 <div key={v.id} style={{ background: "#1E2E1F", borderRadius: 12, padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
@@ -2060,7 +2071,7 @@ function ReportsTab({ clients }) {
 
 export default function GrowCRM() {
   const [user, setUser] = useState(undefined);
-  const { clients, deletedIds, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient } = useFirestoreClients();
+  const { clients, deletedIds, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient, addVisitToClient } = useFirestoreClients();
   const [tab, setTab] = useState(() => localStorage.getItem("grow_tab") || "today");
   const [prefillClient, setPrefillClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -2173,6 +2184,7 @@ export default function GrowCRM() {
           client={selectedClient}
           onBack={() => { setSelectedClient(null); localStorage.removeItem("grow_selected_client"); }}
           onUpdate={updateClient}
+          onAddVisit={addVisitToClient}
           allClients={clients}
           onDelete={deleteClient}
           onSelectClient={setSelectedClient}
