@@ -642,7 +642,6 @@ function TodayTab({ clients, onClientSelect }) {
   function getRouteUrls() {
     const queries = stopsOrdenadas.map(evt => {
       const c = evt.client;
-      if (c.placeId) return `place_id:${c.placeId}`;
       if (c.lat && c.lng) return `${c.lat},${c.lng}`;
       const addr = (c.address || "").trim();
       const isLink = /^https?:\/\//i.test(addr);
