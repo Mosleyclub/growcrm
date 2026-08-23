@@ -319,6 +319,7 @@ const ICONS = {
   eyeOff:   "M17.94 17.94A10.94 10.94 0 0112 19c-7 0-11-7-11-7a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 7 11 7a18.5 18.5 0 01-2.16 3.19M14.12 14.12a3 3 0 11-4.24-4.24M1 1l22 22",
   report:   ["M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z", "M14 2v6h6", "M9 13h6", "M9 17h6"],
   download: ["M12 3v12", "M7 10l5 5 5-5", "M5 21h14"],
+  list:     ["M8 6h13", "M8 12h13", "M8 18h13", "M3 6h.01", "M3 12h.01", "M3 18h.01"],
 };
 
 // Detecta si una direccion guardada es en realidad un link de Maps
@@ -530,6 +531,7 @@ function TodayTab({ clients, onClientSelect }) {
   const [showNewVisitForm, setShowNewVisitForm] = useState(false);
   const [miUbicacion, setMiUbicacion] = useState(null);
   const [actualizandoUbicacion, setActualizandoUbicacion] = useState(false);
+  const [showRouteList, setShowRouteList] = useState(false);
 
   function actualizarUbicacion() {
     if (!navigator.geolocation) return;
@@ -642,6 +644,7 @@ function TodayTab({ clients, onClientSelect }) {
   function getRouteUrls() {
     const queries = stopsOrdenadas.map(evt => {
       const c = evt.client;
+      if (c.nombreGoogle && c.direccionGoogle) return encodeURIComponent(`${c.nombreGoogle}, ${c.direccionGoogle}`);
       if (c.lat && c.lng) return `${c.lat},${c.lng}`;
       const addr = (c.address || "").trim();
       const isLink = /^https?:\/\//i.test(addr);
@@ -698,6 +701,45 @@ function TodayTab({ clients, onClientSelect }) {
               <Icon d={ICONS.map} size={16} /> {arr.length > 1 ? `Recorrido parte ${i + 1} de ${arr.length}` : `Ver recorrido completo (${stopsWithAddress.length} paradas)`}
             </a>
           ))}
+          <button onClick={() => setShowRouteList(true)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", color: "#C8D9C9", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <Icon d={ICONS.list} size={15} /> Ver lista de paradas ({stopsOrdenadas.length})
+          </button>
+        </div>
+      )}
+
+      {showRouteList && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "flex-end" }} onClick={() => setShowRouteList(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#1E2E1F", borderRadius: "16px 16px 0 0", padding: "20px 16px 32px", width: "100%", maxWidth: 430, margin: "0 auto", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexShrink: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>Recorrido de hoy, en orden</div>
+              <button onClick={() => setShowRouteList(false)} style={{ background: "none", border: "none", color: "#4A6B4C", fontSize: 18, cursor: "pointer" }}>×</button>
+            </div>
+            <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: 16, flexShrink: 0 }}>Mismo orden que "Ver recorrido completo", con el nombre real de cada negocio</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+              {stopsOrdenadas.map((evt, i) => {
+                const c = evt.client;
+                const nombreMostrado = c.nombreGoogle || c.name;
+                const direccionGuardada = (c.direccionGoogle || c.address || "").trim();
+                const esLink = /^https?:\/\//i.test(direccionGuardada);
+                const direccionMostrada = esLink ? "" : direccionGuardada;
+                return (
+                  <div key={i} style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: "#2A2410", color: "#D4C24A", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombreMostrado}</div>
+                      {direccionMostrada && <div style={{ fontSize: 11, color: "#4A6B4C", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{direccionMostrada}</div>}
+                    </div>
+                    <a href={getMapsUrl(c.address, c.name, c.lat, c.lng, c.placeId)} target="_blank" rel="noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>
+                      <Icon d={ICONS.map} size={13} /> Maps
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
