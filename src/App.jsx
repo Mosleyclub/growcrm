@@ -831,6 +831,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState(client.status);
   const [photos, setPhotos] = useState([]);
+  const [fechaVisita, setFechaVisita] = useState(fechaLocalISO(new Date()));
   const fileRef = useRef();
 
   useEffect(() => {
@@ -850,11 +851,16 @@ function VisitForm({ client, onSave, onClose, guardando }) {
     });
   }
 
+  function isoAFechaAR(iso) {
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  }
+
   function handleSave() {
     if (!notes.trim()) return;
     const visit = {
       id: Date.now(),
-      date: new Date().toLocaleDateString("es-AR"),
+      date: fechaVisita ? isoAFechaAR(fechaVisita) : new Date().toLocaleDateString("es-AR"),
       notes,
       status,
       photos,
@@ -875,6 +881,13 @@ function VisitForm({ client, onSave, onClose, guardando }) {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 100px" }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Fecha de la visita</div>
+          <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)}
+            style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "11px 14px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+          <div style={{ fontSize: 10, color: "#4A6B4C", marginTop: 6 }}>Podés cargar una visita de una semana anterior si te quedó pendiente</div>
+        </div>
+
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Estado del cliente</div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1790,6 +1803,16 @@ function inicioDeSemana(date) {
   return d;
 }
 
+function semanaLabelDe(fechaStr) {
+  const fecha = parseFechaVisita(fechaStr);
+  if (!fecha) return "Semana sin fecha";
+  const inicio = inicioDeSemana(fecha);
+  const fin = new Date(inicio);
+  fin.setDate(fin.getDate() + 6);
+  const fmt = d => d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+  return `Semana del ${fmt(inicio)} al ${fmt(fin)}`;
+}
+
 // Comprime una foto (dataURL) a un tamaño manejable para el PDF, sin tocar el original en Firestore
 function comprimirImagenParaPdf(dataUrl, maxDim = 700, calidad = 0.6) {
   return new Promise(resolve => {
@@ -1838,7 +1861,7 @@ function ReportsTab({ clients }) {
     (c.visits || []).forEach(v => {
       const fecha = parseFechaVisita(v.date);
       if (fecha && fecha >= desdeDate && fecha <= hastaDate) {
-        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address });
+        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientPhone: c.phone });
       }
     });
   });
@@ -1860,7 +1883,8 @@ function ReportsTab({ clients }) {
     txt += `Comercios visitados: ${clientesUnicos}\n`;
     txt += `Caliente: ${conteoEstados.hot} - Tibio: ${conteoEstados.warm} - Frio: ${conteoEstados.cold}\n\n`;
     visitasEnRango.forEach((v, i) => {
-      txt += `${i + 1}. ${v.clientName} - ${v.date} - ${STATUS_CONFIG[v.status]?.label || v.status}\n`;
+      txt += `${i + 1}. ${v.clientName} - ${semanaLabelDe(v.date)} - ${STATUS_CONFIG[v.status]?.label || v.status}\n`;
+      if (v.clientPhone) txt += `   WhatsApp: https://wa.me/${v.clientPhone}\n`;
       if (v.notes) txt += `   ${v.notes}\n`;
     });
     return txt;
@@ -1920,18 +1944,18 @@ function ReportsTab({ clients }) {
       doc.setFontSize(9);
       doc.setDrawColor(200);
       doc.text("Cliente", marginX, y);
-      doc.text("Fecha", marginX + 95, y);
-      doc.text("Estado", marginX + 130, y);
+      doc.text("Semana", marginX + 90, y);
+      doc.text("Estado", marginX + 145, y);
       y += 2;
       doc.line(marginX, y, pageWidth - marginX, y);
       y += 5;
       doc.setFont(undefined, "normal");
       visitasParaPdf.forEach(v => {
         nuevaPaginaSiNecesario(6);
-        const nombreCorto = doc.splitTextToSize(v.clientName, 88)[0];
+        const nombreCorto = doc.splitTextToSize(v.clientName, 83)[0];
         doc.text(nombreCorto, marginX, y);
-        doc.text(v.date, marginX + 95, y);
-        doc.text(STATUS_CONFIG[v.status]?.label || v.status || "-", marginX + 130, y);
+        doc.text(semanaLabelDe(v.date).replace("Semana del ", ""), marginX + 90, y);
+        doc.text(STATUS_CONFIG[v.status]?.label || v.status || "-", marginX + 145, y);
         y += 5.5;
       });
       y += 4;
@@ -1940,29 +1964,26 @@ function ReportsTab({ clients }) {
       doc.line(marginX, y, pageWidth - marginX, y);
       y += 10;
 
-      // Detalle, agrupado por día
-      const diasOrdenados = [];
-      const porDia = {};
+      // Detalle, agrupado por semana
+      const semanasOrdenadas = [];
+      const porSemana = {};
       visitasParaPdf.forEach(v => {
-        if (!porDia[v.date]) { porDia[v.date] = []; diasOrdenados.push(v.date); }
-        porDia[v.date].push(v);
+        const label = semanaLabelDe(v.date);
+        if (!porSemana[label]) { porSemana[label] = []; semanasOrdenadas.push(label); }
+        porSemana[label].push(v);
       });
 
       let contador = 0;
-      diasOrdenados.forEach(fechaStr => {
-        const fechaObj = parseFechaVisita(fechaStr);
-        const nombreDia = fechaObj ? fechaObj.toLocaleDateString("es-AR", { weekday: "long" }) : "";
-        const nombreDiaCap = nombreDia ? nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1) : "";
-
+      semanasOrdenadas.forEach(semanaLabel => {
         nuevaPaginaSiNecesario(14);
         doc.setFillColor(230, 230, 220);
         doc.rect(marginX, y - 4.5, pageWidth - marginX * 2, 7, "F");
         doc.setFontSize(10);
         doc.setFont(undefined, "bold");
-        doc.text(`${nombreDiaCap} ${fechaStr}`, marginX + 2, y);
+        doc.text(semanaLabel, marginX + 2, y);
         y += 9;
 
-        porDia[fechaStr].forEach(v => {
+        porSemana[semanaLabel].forEach(v => {
           contador++;
           nuevaPaginaSiNecesario(20);
 
@@ -1978,6 +1999,14 @@ function ReportsTab({ clients }) {
 
           if (v.clientAddress && !/^https?:\/\//i.test(v.clientAddress)) {
             doc.text(v.clientAddress, marginX, y, { maxWidth: pageWidth - marginX * 2 });
+            y += 5;
+          }
+
+          if (v.clientPhone) {
+            nuevaPaginaSiNecesario(6);
+            doc.setTextColor(30, 90, 40);
+            doc.textWithLink(`WhatsApp: ${v.clientPhone}`, marginX, y, { url: `https://wa.me/${v.clientPhone}` });
+            doc.setTextColor(0);
             y += 5;
           }
 
