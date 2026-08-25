@@ -1930,6 +1930,17 @@ function ReportsTab({ clients, onUpdateClient }) {
     setDesde(fechaLocalISO(inicio));
     setHasta(fechaLocalISO(fin));
   }
+
+  function handleCambioDesde(valor) {
+    setDesde(valor);
+    // Al elegir "desde", completa "hasta" solo con la semana completa
+    // (6 días después). Si después el usuario quiere otro rango, puede
+    // tocar "hasta" a mano y queda como lo puso.
+    const inicio = new Date(valor + "T00:00:00");
+    const fin = new Date(inicio);
+    fin.setDate(fin.getDate() + 6);
+    setHasta(fechaLocalISO(fin));
+  }
   function estaSemana() { setRango(inicioDeSemana(hoy), hoy); }
   function semanaPasada() {
     const inicioActual = inicioDeSemana(hoy);
@@ -2185,7 +2196,7 @@ function ReportsTab({ clients, onUpdateClient }) {
       <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 10, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Desde</div>
-          <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
+          <input type="date" value={desde} onChange={e => handleCambioDesde(e.target.value)}
             style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, color: "#F2F5EE", fontSize: 13, padding: "8px 10px", fontFamily: "inherit", boxSizing: "border-box" }} />
         </div>
         <div style={{ flex: 1 }}>
