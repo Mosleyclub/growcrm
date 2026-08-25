@@ -832,6 +832,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState(client.status);
   const [photos, setPhotos] = useState([]);
+  const [comprimiendoFoto, setComprimiendoFoto] = useState(false);
   const [fechaVisita, setFechaVisita] = useState(fechaLocalISO(new Date()));
   const [tipo, setTipo] = useState("visita");
   const fileRef = useRef();
@@ -846,11 +847,25 @@ function VisitForm({ client, onSave, onClose, guardando }) {
 
   function handlePhoto(e) {
     const files = Array.from(e.target.files);
-    files.forEach(f => {
+    if (!files.length) return;
+    setComprimiendoFoto(true);
+    Promise.all(files.map(f => new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = ev => setPhotos(p => [...p, ev.target.result]);
+      reader.onload = async ev => {
+        try {
+          // Se comprime acá, antes de guardar, para que una foto pesada de la
+          // cámara del celular no rompa el guardado en Firestore (que tiene
+          // un límite de tamaño por campo).
+          const comprimida = await comprimirImagen(ev.target.result);
+          resolve(comprimida);
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = reject;
       reader.readAsDataURL(f);
-    });
+    }))).then(comprimidas => {
+      setPhotos(p => [...p, ...comprimidas]);
+      setComprimiendoFoto(false);
+    }).catch(() => setComprimiendoFoto(false));
   }
 
   function isoAFechaAR(iso) {
@@ -934,8 +949,13 @@ function VisitForm({ client, onSave, onClose, guardando }) {
                   style={{ position: "absolute", top: -6, right: -6, background: "#FF4D4D", border: "none", borderRadius: "50%", width: 20, height: 20, color: "white", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>×</button>
               </div>
             ))}
-            <button onClick={() => fileRef.current.click()}
-              style={{ width: 80, height: 80, borderRadius: 8, border: "2px dashed #2E4A30", background: "#1E2E1F", color: "#4A6B4C", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            {comprimiendoFoto && (
+              <div style={{ width: 80, height: 80, borderRadius: 8, border: "2px dashed #2E4A30", background: "#1E2E1F", color: "#D4C24A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, textAlign: "center", padding: 4 }}>
+                Comprimiendo...
+              </div>
+            )}
+            <button onClick={() => fileRef.current.click()} disabled={comprimiendoFoto}
+              style={{ width: 80, height: 80, borderRadius: 8, border: "2px dashed #2E4A30", background: "#1E2E1F", color: "#4A6B4C", cursor: comprimiendoFoto ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, opacity: comprimiendoFoto ? 0.5 : 1 }}>
               <Icon d={ICONS.camera} size={20} />
               <span style={{ fontSize: 10 }}>Agregar</span>
             </button>
@@ -945,9 +965,9 @@ function VisitForm({ client, onSave, onClose, guardando }) {
       </div>
 
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
-        <button onClick={handleSave} disabled={!notes.trim() || guardando}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() && !guardando ? "#D4C24A" : "#1E2E1F", color: notes.trim() && !guardando ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() && !guardando ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
-          {guardando ? "Guardando... no cierres ni refresques" : "Guardar visita"}
+        <button onClick={handleSave} disabled={!notes.trim() || guardando || comprimiendoFoto}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() && !guardando && !comprimiendoFoto ? "#D4C24A" : "#1E2E1F", color: notes.trim() && !guardando && !comprimiendoFoto ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() && !guardando && !comprimiendoFoto ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
+          {guardando ? "Guardando... no cierres ni refresques" : comprimiendoFoto ? "Procesando foto..." : "Guardar visita"}
         </button>
       </div>
     </div>
@@ -1849,8 +1869,10 @@ function semanaLabelDe(fechaStr) {
   return `Semana del ${fmt(inicio)} al ${fmt(fin)}`;
 }
 
-// Comprime una foto (dataURL) a un tamaño manejable para el PDF, sin tocar el original en Firestore
-function comprimirImagenParaPdf(dataUrl, maxDim = 700, calidad = 0.6) {
+// Comprime una foto (dataURL) a un tamaño manejable. Se usa tanto al guardar
+// la visita (para no exceder el límite de tamaño de Firestore) como al armar
+// el PDF (para que el archivo no pese demasiado).
+function comprimirImagen(dataUrl, maxDim = 900, calidad = 0.65) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
@@ -1941,7 +1963,7 @@ function ReportsTab({ clients }) {
       const visitasParaPdf = await Promise.all(visitasEnRango.map(async v => {
         const fotos = fotosDeVisita(v);
         if (!fotos.length) return { ...v, photos: [] };
-        const comprimidas = await Promise.all(fotos.map(p => comprimirImagenParaPdf(p)));
+        const comprimidas = await Promise.all(fotos.map(p => comprimirImagen(p, 700, 0.6)));
         return { ...v, photos: comprimidas };
       }));
 
