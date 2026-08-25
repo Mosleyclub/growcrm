@@ -828,13 +828,20 @@ function TodayTab({ clients, onClientSelect }) {
 }
 
 // ─── VISIT FORM ──────────────────────────────────────────────────────────────
-function VisitForm({ client, onSave, onClose, guardando }) {
-  const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState(client.status);
-  const [photos, setPhotos] = useState([]);
+function arFechaAIso(str) {
+  const fecha = parseFechaVisita(str);
+  if (!fecha) return fechaLocalISO(new Date());
+  return fechaLocalISO(fecha);
+}
+
+function VisitForm({ client, visit, onSave, onClose, guardando }) {
+  const editando = !!visit;
+  const [notes, setNotes] = useState(visit ? visit.notes : "");
+  const [status, setStatus] = useState(visit ? visit.status : client.status);
+  const [photos, setPhotos] = useState(visit ? fotosDeVisita(visit) : []);
   const [comprimiendoFoto, setComprimiendoFoto] = useState(false);
-  const [fechaVisita, setFechaVisita] = useState(fechaLocalISO(new Date()));
-  const [tipo, setTipo] = useState("visita");
+  const [fechaVisita, setFechaVisita] = useState(visit ? arFechaAIso(visit.date) : fechaLocalISO(new Date()));
+  const [tipo, setTipo] = useState(visit ? (visit.tipo || "visita") : "visita");
   const fileRef = useRef();
 
   useEffect(() => {
@@ -875,8 +882,8 @@ function VisitForm({ client, onSave, onClose, guardando }) {
 
   function handleSave() {
     if (!notes.trim()) return;
-    const visit = {
-      id: Date.now(),
+    const visitGuardada = {
+      id: editando ? visit.id : Date.now(),
       date: fechaVisita ? isoAFechaAR(fechaVisita) : new Date().toLocaleDateString("es-AR"),
       notes,
       status,
@@ -885,7 +892,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
       photosData: photos.length ? JSON.stringify(photos) : "",
       tipo,
     };
-    onSave(visit, status);
+    onSave(visitGuardada, status);
   }
 
   return (
@@ -895,7 +902,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
           <Icon d={ICONS.back} size={22} />
         </button>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>Nueva visita</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>{editando ? "Editar visita" : "Nueva visita"}</div>
           <div style={{ fontSize: 11, color: "#4A6B4C" }}>{client.name}</div>
         </div>
       </div>
@@ -967,7 +974,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
         <button onClick={handleSave} disabled={!notes.trim() || guardando || comprimiendoFoto}
           style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() && !guardando && !comprimiendoFoto ? "#D4C24A" : "#1E2E1F", color: notes.trim() && !guardando && !comprimiendoFoto ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() && !guardando && !comprimiendoFoto ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
-          {guardando ? "Guardando... no cierres ni refresques" : comprimiendoFoto ? "Procesando foto..." : "Guardar visita"}
+          {guardando ? (editando ? "Guardando cambios..." : "Guardando... no cierres ni refresques") : comprimiendoFoto ? "Procesando foto..." : editando ? "Guardar cambios" : "Guardar visita"}
         </button>
       </div>
     </div>
@@ -1064,6 +1071,7 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(client.phone || "");
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [editingVisit, setEditingVisit] = useState(null);
 
   function handleSavePhone() {
     onUpdate({ ...client, phone: phoneInput.trim() });
@@ -1113,7 +1121,14 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
     setEditingEncargado(false);
   }
 
+  function handleSaveEditedVisit(visitEditada) {
+    const nuevasVisitas = client.visits.map(x => x.id === visitEditada.id ? visitEditada : x);
+    onUpdate({ ...client, visits: nuevasVisitas, status: visitEditada.status });
+    setEditingVisit(null);
+  }
+
   if (showVisitForm) return <VisitForm client={client} onSave={handleSaveVisit} onClose={() => setShowVisitForm(false)} guardando={guardandoVisita} />;
+  if (editingVisit) return <VisitForm client={client} visit={editingVisit} onSave={handleSaveEditedVisit} onClose={() => setEditingVisit(null)} guardando={false} />;
 
   const cfg = STATUS_CONFIG[client.status];
 
@@ -1291,6 +1306,10 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <ThermoBadge status={v.status} />
+                      <button onClick={() => setEditingVisit(v)}
+                        style={{ background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", padding: 2, display: "flex" }}>
+                        <Icon d={ICONS.edit} size={14} />
+                      </button>
                       <button
                         onClick={() => {
                           if (window.confirm(`¿Borrar la visita del ${v.date}? No se puede deshacer.`)) {
@@ -1919,7 +1938,7 @@ function ReportsTab({ clients }) {
     (c.visits || []).forEach(v => {
       const fecha = parseFechaVisita(v.date);
       if (fecha && fecha >= desdeDate && fecha <= hastaDate) {
-        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientPhone: c.phone });
+        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientPhone: c.phone, clientInstagram: c.instagram, clientEncargado: c.encargado });
       }
     });
   });
@@ -1946,7 +1965,9 @@ function ReportsTab({ clients }) {
     txt += `Caliente: ${conteoEstados.hot} - Tibio: ${conteoEstados.warm} - Frio: ${conteoEstados.cold}\n\n`;
     visitasEnRango.forEach((v, i) => {
       txt += `${i + 1}. ${v.clientName} (${tipoLabel(v)}) - ${semanaLabelDe(v.date)} - ${STATUS_CONFIG[v.status]?.label || v.status}\n`;
+      if (v.clientEncargado) txt += `   Contacto: ${v.clientEncargado}\n`;
       if (v.clientPhone) txt += `   WhatsApp: https://wa.me/${v.clientPhone}\n`;
+      if (v.clientInstagram) txt += `   Instagram: ${v.clientInstagram}\n`;
       if (v.notes) txt += `   ${v.notes}\n`;
     });
     return txt;
@@ -2067,10 +2088,24 @@ function ReportsTab({ clients }) {
             y += 5;
           }
 
+          if (v.clientEncargado) {
+            nuevaPaginaSiNecesario(6);
+            doc.text(`Contacto: ${v.clientEncargado}`, marginX, y);
+            y += 5;
+          }
+
           if (v.clientPhone) {
             nuevaPaginaSiNecesario(6);
             doc.setTextColor(30, 90, 40);
             doc.textWithLink(`WhatsApp: ${v.clientPhone}`, marginX, y, { url: `https://wa.me/${v.clientPhone}` });
+            doc.setTextColor(0);
+            y += 5;
+          }
+
+          if (v.clientInstagram) {
+            nuevaPaginaSiNecesario(6);
+            doc.setTextColor(30, 90, 40);
+            doc.textWithLink(`Instagram: ${v.clientInstagram}`, marginX, y, { url: v.clientInstagram });
             doc.setTextColor(0);
             y += 5;
           }
@@ -2177,6 +2212,11 @@ function ReportsTab({ clients }) {
                 <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
               </div>
               <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{tipoLabel(v)} · {v.date}</div>
+              {(v.clientEncargado || v.clientPhone || v.clientInstagram) && (
+                <div style={{ fontSize: 10, color: "#4A6B4C", marginBottom: 4 }}>
+                  {[v.clientEncargado, v.clientPhone, v.clientInstagram].filter(Boolean).join(" · ")}
+                </div>
+              )}
               {v.notes && <div style={{ fontSize: 12, color: "#8AA88C" }}>{v.notes}</div>}
               {fotosDeVisita(v).length > 0 && (
                 <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
