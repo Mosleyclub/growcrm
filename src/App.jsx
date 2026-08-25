@@ -865,7 +865,9 @@ function VisitForm({ client, onSave, onClose, guardando }) {
       date: fechaVisita ? isoAFechaAR(fechaVisita) : new Date().toLocaleDateString("es-AR"),
       notes,
       status,
-      photos,
+      // Se guarda como texto (JSON), no como array, porque arrayUnion() de
+      // Firestore no admite un array anidado dentro del objeto que agrega.
+      photosData: photos.length ? JSON.stringify(photos) : "",
       tipo,
     };
     onSave(visit, status);
@@ -1280,10 +1282,10 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
                       </button>
                     </div>
                   </div>
-                  <div style={{ fontSize: 13, color: "#C8D9C9", lineHeight: 1.5, marginBottom: v.photos?.length ? 10 : 0 }}>{v.notes}</div>
-                  {v.photos?.length > 0 && (
+                  <div style={{ fontSize: 13, color: "#C8D9C9", lineHeight: 1.5, marginBottom: fotosDeVisita(v).length ? 10 : 0 }}>{v.notes}</div>
+                  {fotosDeVisita(v).length > 0 && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                      {v.photos.map((p, i) => (
+                      {fotosDeVisita(v).map((p, i) => (
                         <img key={i} src={p} alt="" style={{ width: 70, height: 70, borderRadius: 8, objectFit: "cover", border: "1px solid #2E4A30" }} />
                       ))}
                     </div>
@@ -1808,6 +1810,19 @@ function parseFechaVisita(str) {
   return new Date(y, m - 1, d);
 }
 
+// Las fotos de una visita se guardan como texto JSON (photosData) en vez de
+// array directo, porque Firestore's arrayUnion() no admite objetos con un
+// campo array anidado adentro (tira "invalid nested entity"). Esta función
+// lee fotos tanto del formato viejo (array directo, visitas ya guardadas)
+// como del nuevo (JSON en texto), para no romper nada de lo existente.
+function fotosDeVisita(v) {
+  if (Array.isArray(v.photos)) return v.photos;
+  if (v.photosData) {
+    try { return JSON.parse(v.photosData); } catch (e) { return []; }
+  }
+  return [];
+}
+
 function fechaLocalISO(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -1924,8 +1939,9 @@ function ReportsTab({ clients }) {
     try {
       // Comprimir las fotos antes de armar el PDF (no toca lo guardado en Firestore)
       const visitasParaPdf = await Promise.all(visitasEnRango.map(async v => {
-        if (!v.photos || !v.photos.length) return v;
-        const comprimidas = await Promise.all(v.photos.map(p => comprimirImagenParaPdf(p)));
+        const fotos = fotosDeVisita(v);
+        if (!fotos.length) return { ...v, photos: [] };
+        const comprimidas = await Promise.all(fotos.map(p => comprimirImagenParaPdf(p)));
         return { ...v, photos: comprimidas };
       }));
 
@@ -2140,9 +2156,9 @@ function ReportsTab({ clients }) {
               </div>
               <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{tipoLabel(v)} · {v.date}</div>
               {v.notes && <div style={{ fontSize: 12, color: "#8AA88C" }}>{v.notes}</div>}
-              {v.photos?.length > 0 && (
+              {fotosDeVisita(v).length > 0 && (
                 <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                  {v.photos.map((p, j) => (
+                  {fotosDeVisita(v).map((p, j) => (
                     <img key={j} src={p} alt="" style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", border: "1px solid #2E4A30" }} />
                   ))}
                 </div>
