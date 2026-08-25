@@ -1910,11 +1910,21 @@ function comprimirImagen(dataUrl, maxDim = 900, calidad = 0.65) {
   });
 }
 
-function ReportsTab({ clients }) {
+function ReportsTab({ clients, onUpdateClient }) {
   const hoy = new Date();
   const [desde, setDesde] = useState(fechaLocalISO(inicioDeSemana(hoy)));
   const [hasta, setHasta] = useState(fechaLocalISO(hoy));
   const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [editingVisit, setEditingVisit] = useState(null);
+
+  function handleGuardarEdicion(visitEditada) {
+    const cliente = clients.find(c => c.id === editingVisit.clientId);
+    if (cliente) {
+      const nuevasVisitas = (cliente.visits || []).map(x => x.id === visitEditada.id ? visitEditada : x);
+      onUpdateClient({ ...cliente, visits: nuevasVisitas, status: visitEditada.status });
+    }
+    setEditingVisit(null);
+  }
 
   function setRango(inicio, fin) {
     setDesde(fechaLocalISO(inicio));
@@ -1938,7 +1948,7 @@ function ReportsTab({ clients }) {
     (c.visits || []).forEach(v => {
       const fecha = parseFechaVisita(v.date);
       if (fecha && fecha >= desdeDate && fecha <= hastaDate) {
-        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientPhone: c.phone, clientInstagram: c.instagram, clientEncargado: c.encargado });
+        visitasEnRango.push({ ...v, clientId: c.id, clientName: c.name, clientAddress: c.address, clientPhone: c.phone, clientInstagram: c.instagram, clientEncargado: c.encargado });
       }
     });
   });
@@ -2158,6 +2168,11 @@ function ReportsTab({ clients }) {
     setGenerandoPdf(false);
   }
 
+  if (editingVisit) {
+    const cliente = clients.find(c => c.id === editingVisit.clientId);
+    if (cliente) return <VisitForm client={cliente} visit={editingVisit} onSave={handleGuardarEdicion} onClose={() => setEditingVisit(null)} guardando={false} />;
+  }
+
   return (
     <div style={{ padding: "16px 16px 100px" }}>
       <div style={{ fontSize: 18, fontWeight: 700, color: "#F2F5EE", marginBottom: 14 }}>Informe de visitas</div>
@@ -2206,10 +2221,13 @@ function ReportsTab({ clients }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
           {visitasEnRango.map((v, i) => (
-            <div key={i} style={{ background: "#1E2E1F", borderRadius: 10, padding: "10px 12px" }}>
+            <div key={i} onClick={() => setEditingVisit(v)} style={{ background: "#1E2E1F", borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{v.clientName}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
+                  <Icon d={ICONS.edit} size={12} color="#4A6B4C" />
+                </div>
               </div>
               <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{tipoLabel(v)} · {v.date}</div>
               {(v.clientEncargado || v.clientPhone || v.clientInstagram) && (
@@ -2335,7 +2353,7 @@ export default function GrowCRM() {
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
           {tab === "clients" && <ClientsTab clients={clients} deletedIds={deletedIds} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
           {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} onSelectClient={setSelectedClient} />}
-          {tab === "reports" && <ReportsTab clients={clients} />}
+          {tab === "reports" && <ReportsTab clients={clients} onUpdateClient={updateClient} />}
         </div>
 
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#0D1F0F", borderTop: "1px solid #1E2E1F", display: "flex", zIndex: 50 }}>
