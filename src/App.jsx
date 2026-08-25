@@ -320,6 +320,7 @@ const ICONS = {
   report:   ["M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z", "M14 2v6h6", "M9 13h6", "M9 17h6"],
   download: ["M12 3v12", "M7 10l5 5 5-5", "M5 21h14"],
   list:     ["M8 6h13", "M8 12h13", "M8 18h13", "M3 6h.01", "M3 12h.01", "M3 18h.01"],
+  phone:    "M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z",
 };
 
 // Detecta si una direccion guardada es en realidad un link de Maps
@@ -832,6 +833,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
   const [status, setStatus] = useState(client.status);
   const [photos, setPhotos] = useState([]);
   const [fechaVisita, setFechaVisita] = useState(fechaLocalISO(new Date()));
+  const [tipo, setTipo] = useState("visita");
   const fileRef = useRef();
 
   useEffect(() => {
@@ -864,6 +866,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
       notes,
       status,
       photos,
+      tipo,
     };
     onSave(visit, status);
   }
@@ -881,6 +884,18 @@ function VisitForm({ client, onSave, onClose, guardando }) {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 100px" }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Tipo de contacto</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[{ v: "visita", label: "Visita", icon: ICONS.map }, { v: "llamado", label: "Llamado", icon: ICONS.phone }].map(t => (
+              <button key={t.v} onClick={() => setTipo(t.v)}
+                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", borderRadius: 10, border: `2px solid ${tipo === t.v ? "#D4C24A" : "#2E4A30"}`, background: tipo === t.v ? "#2A2410" : "#1E2E1F", color: tipo === t.v ? "#D4C24A" : "#4A6B4C", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                <Icon d={t.icon} size={14} /> {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Fecha de la visita</div>
           <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)}
@@ -1245,7 +1260,13 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
               {[...client.visits].sort((a, b) => (b.id || 0) - (a.id || 0)).map(v => (
                 <div key={v.id} style={{ background: "#1E2E1F", borderRadius: 12, padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, background: "#0D1F0F", borderRadius: 6, padding: "2px 6px" }}>
+                        <Icon d={v.tipo === "llamado" ? ICONS.phone : ICONS.map} size={10} />
+                        <span style={{ fontSize: 10, color: "#8AA88C", fontWeight: 600 }}>{v.tipo === "llamado" ? "Llamado" : "Visita"}</span>
+                      </div>
+                    </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <ThermoBadge status={v.status} />
                       <button
@@ -1876,6 +1897,10 @@ function ReportsTab({ clients }) {
     return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
 
+  function tipoLabel(v) {
+    return v.tipo === "llamado" ? "Llamado" : "Visita";
+  }
+
   function textoWhatsapp() {
     let txt = `*Informe de visitas*\n`;
     txt += `Periodo: ${formatFechaLarga(desde)} al ${formatFechaLarga(hasta)}\n\n`;
@@ -1883,7 +1908,7 @@ function ReportsTab({ clients }) {
     txt += `Comercios visitados: ${clientesUnicos}\n`;
     txt += `Caliente: ${conteoEstados.hot} - Tibio: ${conteoEstados.warm} - Frio: ${conteoEstados.cold}\n\n`;
     visitasEnRango.forEach((v, i) => {
-      txt += `${i + 1}. ${v.clientName} - ${semanaLabelDe(v.date)} - ${STATUS_CONFIG[v.status]?.label || v.status}\n`;
+      txt += `${i + 1}. ${v.clientName} (${tipoLabel(v)}) - ${semanaLabelDe(v.date)} - ${STATUS_CONFIG[v.status]?.label || v.status}\n`;
       if (v.clientPhone) txt += `   WhatsApp: https://wa.me/${v.clientPhone}\n`;
       if (v.notes) txt += `   ${v.notes}\n`;
     });
@@ -1944,18 +1969,20 @@ function ReportsTab({ clients }) {
       doc.setFontSize(9);
       doc.setDrawColor(200);
       doc.text("Cliente", marginX, y);
-      doc.text("Semana", marginX + 90, y);
-      doc.text("Estado", marginX + 145, y);
+      doc.text("Tipo", marginX + 78, y);
+      doc.text("Semana", marginX + 105, y);
+      doc.text("Estado", marginX + 155, y);
       y += 2;
       doc.line(marginX, y, pageWidth - marginX, y);
       y += 5;
       doc.setFont(undefined, "normal");
       visitasParaPdf.forEach(v => {
         nuevaPaginaSiNecesario(6);
-        const nombreCorto = doc.splitTextToSize(v.clientName, 83)[0];
+        const nombreCorto = doc.splitTextToSize(v.clientName, 73)[0];
         doc.text(nombreCorto, marginX, y);
-        doc.text(semanaLabelDe(v.date).replace("Semana del ", ""), marginX + 90, y);
-        doc.text(STATUS_CONFIG[v.status]?.label || v.status || "-", marginX + 145, y);
+        doc.text(tipoLabel(v), marginX + 78, y);
+        doc.text(semanaLabelDe(v.date).replace("Semana del ", ""), marginX + 105, y);
+        doc.text(STATUS_CONFIG[v.status]?.label || v.status || "-", marginX + 155, y);
         y += 5.5;
       });
       y += 4;
@@ -1994,7 +2021,7 @@ function ReportsTab({ clients }) {
 
           doc.setFontSize(9);
           doc.setFont(undefined, "normal");
-          doc.text(`Estado: ${STATUS_CONFIG[v.status]?.label || v.status}`, marginX, y);
+          doc.text(`${tipoLabel(v)} · Estado: ${STATUS_CONFIG[v.status]?.label || v.status}`, marginX, y);
           y += 5;
 
           if (v.clientAddress && !/^https?:\/\//i.test(v.clientAddress)) {
@@ -2111,7 +2138,7 @@ function ReportsTab({ clients }) {
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{v.clientName}</div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
               </div>
-              <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{v.date}</div>
+              <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{tipoLabel(v)} · {v.date}</div>
               {v.notes && <div style={{ fontSize: 12, color: "#8AA88C" }}>{v.notes}</div>}
               {v.photos?.length > 0 && (
                 <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
