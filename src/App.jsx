@@ -810,6 +810,7 @@ function TodayTab({ clients, onClientSelect }) {
 function VisitForm({ client, onSave, onClose, guardando, visitaExistente }) {
   const [notes, setNotes] = useState(visitaExistente?.notes || "");
   const [status, setStatus] = useState(visitaExistente?.status || client.status);
+  const [tipo, setTipo] = useState(visitaExistente?.tipo || "visita");
   const [photos, setPhotos] = useState(visitaExistente?.photos || []);
   const fileRef = useRef();
 
@@ -841,6 +842,7 @@ function VisitForm({ client, onSave, onClose, guardando, visitaExistente }) {
       notes,
       status,
       photos,
+      tipo,
     };
     onSave(visit, status);
   }
@@ -858,6 +860,18 @@ function VisitForm({ client, onSave, onClose, guardando, visitaExistente }) {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 100px" }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Tipo</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[{ key: "visita", label: "Visita" }, { key: "llamado", label: "Llamado" }].map(t => (
+              <button key={t.key} onClick={() => setTipo(t.key)}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: `2px solid ${tipo === t.key ? "#D4C24A" : "#2E4A30"}`, background: tipo === t.key ? "#2A2410" : "#1E2E1F", color: tipo === t.key ? "#D4C24A" : "#4A6B4C", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Estado del cliente</div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1230,7 +1244,7 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, onUpdateVisit, onD
               {[...client.visits].sort((a, b) => (b.id || 0) - (a.id || 0)).map(v => (
                 <div key={v.id} style={{ background: "#1E2E1F", borderRadius: 12, padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
+                    <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}{v.tipo === "llamado" ? " · Llamado" : ""}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <ThermoBadge status={v.status} />
                       <button onClick={() => setEditingVisit(v)}
