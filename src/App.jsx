@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { db, auth } from "./firebase";
-import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "firebase/auth";
 import { jsPDF } from "jspdf";
 
@@ -265,6 +265,27 @@ function useFirestoreClients() {
       lastModified: Date.now(),
     });
   }
+  // Edita una visita existente: lee el documento fresco de Firestore justo antes
+  // de escribir (no usa ninguna copia vieja en memoria), reemplaza esa visita
+  // puntual por su id, y guarda solo el arreglo de visitas.
+  async function updateVisitInClient(clientId, visitId, visitActualizada, newStatus) {
+    const ref = doc(db, "clients", String(clientId));
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error("El cliente ya no existe");
+    const visitsActuales = snap.data().visits || [];
+    const nuevasVisitas = visitsActuales.map(v => v.id === visitId ? visitActualizada : v);
+    await updateDoc(ref, { visits: nuevasVisitas, status: newStatus, lastModified: Date.now() });
+  }
+  // Borra una visita leyendo el estado fresco de Firestore primero, para no
+  // pisar por accidente otras visitas que se hayan agregado mientras tanto.
+  async function deleteVisitFromClient(clientId, visitId) {
+    const ref = doc(db, "clients", String(clientId));
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error("El cliente ya no existe");
+    const visitsActuales = snap.data().visits || [];
+    const nuevasVisitas = visitsActuales.filter(v => v.id !== visitId);
+    await updateDoc(ref, { visits: nuevasVisitas, lastModified: Date.now() });
+  }
   async function addClient(client) {
     try {
       let toSave = { ...client };
@@ -290,7 +311,7 @@ function useFirestoreClients() {
   }
 }
 
-  return { clients, deletedIds, loading, updateClient, addClient, deleteClient, addVisitToClient };
+  return { clients, deletedIds, loading, updateClient, addClient, deleteClient, addVisitToClient, updateVisitInClient, deleteVisitFromClient };
 }
 
 // ─── ICONS ──────────────────────────────────────────────────────────────────
@@ -786,10 +807,10 @@ function TodayTab({ clients, onClientSelect }) {
 }
 
 // ─── VISIT FORM ──────────────────────────────────────────────────────────────
-function VisitForm({ client, onSave, onClose, guardando }) {
-  const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState(client.status);
-  const [photos, setPhotos] = useState([]);
+function VisitForm({ client, onSave, onClose, guardando, visitaExistente }) {
+  const [notes, setNotes] = useState(visitaExistente?.notes || "");
+  const [status, setStatus] = useState(visitaExistente?.status || client.status);
+  const [photos, setPhotos] = useState(visitaExistente?.photos || []);
   const fileRef = useRef();
 
   useEffect(() => {
@@ -804,7 +825,10 @@ function VisitForm({ client, onSave, onClose, guardando }) {
     const files = Array.from(e.target.files);
     files.forEach(f => {
       const reader = new FileReader();
-      reader.onload = ev => setPhotos(p => [...p, ev.target.result]);
+      reader.onload = async ev => {
+        const comprimida = await comprimirImagenParaPdf(ev.target.result, 900, 0.6);
+        setPhotos(p => [...p, comprimida]);
+      };
       reader.readAsDataURL(f);
     });
   }
@@ -812,8 +836,8 @@ function VisitForm({ client, onSave, onClose, guardando }) {
   function handleSave() {
     if (!notes.trim()) return;
     const visit = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString("es-AR"),
+      id: visitaExistente?.id || Date.now(),
+      date: visitaExistente?.date || new Date().toLocaleDateString("es-AR"),
       notes,
       status,
       photos,
@@ -828,7 +852,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
           <Icon d={ICONS.back} size={22} />
         </button>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>Nueva visita</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>{visitaExistente ? "Editar visita" : "Nueva visita"}</div>
           <div style={{ fontSize: 11, color: "#4A6B4C" }}>{client.name}</div>
         </div>
       </div>
@@ -876,7 +900,7 @@ function VisitForm({ client, onSave, onClose, guardando }) {
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
         <button onClick={handleSave} disabled={!notes.trim() || guardando}
           style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() && !guardando ? "#D4C24A" : "#1E2E1F", color: notes.trim() && !guardando ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() && !guardando ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
-          {guardando ? "Guardando... no cierres ni refresques" : "Guardar visita"}
+          {guardando ? "Guardando... no cierres ni refresques" : (visitaExistente ? "Guardar cambios" : "Guardar visita")}
         </button>
       </div>
     </div>
@@ -957,10 +981,11 @@ function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados 
     .slice(0, maxResultados);
 }
 
-function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDelete, onSelectClient }) {
+function ClientDetail({ client, onBack, onUpdate, onAddVisit, onUpdateVisit, onDeleteVisit, allClients, onDelete, onSelectClient }) {
   const [showNearby, setShowNearby] = useState(false);
   const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
   const [showVisitForm, setShowVisitForm] = useState(false);
+  const [editingVisit, setEditingVisit] = useState(null);
   const [guardandoVisita, setGuardandoVisita] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressInput, setAddressInput] = useState(client.address || "");
@@ -999,6 +1024,19 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
     setShowVisitForm(false);
   }
 
+  async function handleUpdateVisit(visit, newStatus) {
+    setGuardandoVisita(true);
+    try {
+      await onUpdateVisit(client.id, visit.id, visit, newStatus);
+    } catch (e) {
+      alert("No se pudieron guardar los cambios, probá de nuevo: " + e.message);
+      setGuardandoVisita(false);
+      return;
+    }
+    setGuardandoVisita(false);
+    setEditingVisit(null);
+  }
+
   function handleSaveAddress() {
     const direccionCambio = addressInput.trim() !== (client.address || "");
     const updated = { ...client, address: addressInput.trim() };
@@ -1023,6 +1061,7 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
   }
 
   if (showVisitForm) return <VisitForm client={client} onSave={handleSaveVisit} onClose={() => setShowVisitForm(false)} guardando={guardandoVisita} />;
+  if (editingVisit) return <VisitForm client={client} visitaExistente={editingVisit} onSave={handleUpdateVisit} onClose={() => setEditingVisit(null)} guardando={guardandoVisita} />;
 
   const cfg = STATUS_CONFIG[client.status];
 
@@ -1194,10 +1233,15 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
                     <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <ThermoBadge status={v.status} />
+                      <button onClick={() => setEditingVisit(v)}
+                        style={{ background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", padding: 2, display: "flex" }}>
+                        <Icon d={ICONS.edit || ICONS.pencil} size={14} />
+                      </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (window.confirm(`¿Borrar la visita del ${v.date}? No se puede deshacer.`)) {
-                            onUpdate({ ...client, visits: client.visits.filter(x => x.id !== v.id) });
+                            try { await onDeleteVisit(client.id, v.id); }
+                            catch (e) { alert("No se pudo borrar, probá de nuevo: " + e.message); }
                           }
                         }}
                         style={{ background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", padding: 2, display: "flex" }}>
@@ -2111,7 +2155,7 @@ function ReportsTab({ clients }) {
 
 export default function GrowCRM() {
   const [user, setUser] = useState(undefined);
-  const { clients, deletedIds, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient, addVisitToClient } = useFirestoreClients();
+  const { clients, deletedIds, loading, updateClient: fsUpdateClient, addClient: fsAddClient, deleteClient, addVisitToClient, updateVisitInClient, deleteVisitFromClient } = useFirestoreClients();
   const [tab, setTab] = useState(() => localStorage.getItem("grow_tab") || "today");
   const [prefillClient, setPrefillClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -2225,6 +2269,8 @@ export default function GrowCRM() {
           onBack={() => { setSelectedClient(null); localStorage.removeItem("grow_selected_client"); }}
           onUpdate={updateClient}
           onAddVisit={addVisitToClient}
+          onUpdateVisit={updateVisitInClient}
+          onDeleteVisit={deleteVisitFromClient}
           allClients={clients}
           onDelete={deleteClient}
           onSelectClient={setSelectedClient}
