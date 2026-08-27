@@ -1774,10 +1774,18 @@ function ReportsTab({ clients }) {
   const [desde, setDesde] = useState(fechaLocalISO(inicioDeSemana(hoy)));
   const [hasta, setHasta] = useState(fechaLocalISO(hoy));
   const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [visitaDetalle, setVisitaDetalle] = useState(null);
 
   function setRango(inicio, fin) {
     setDesde(fechaLocalISO(inicio));
     setHasta(fechaLocalISO(fin));
+  }
+  function cambiarDesde(nuevoDesde) {
+    setDesde(nuevoDesde);
+    const inicio = new Date(nuevoDesde + "T00:00:00");
+    const finDeEsaSemana = new Date(inicioDeSemana(inicio));
+    finDeEsaSemana.setDate(finDeEsaSemana.getDate() + 6);
+    setHasta(fechaLocalISO(finDeEsaSemana));
   }
   function estaSemana() { setRango(inicioDeSemana(hoy), hoy); }
   function semanaPasada() {
@@ -2000,7 +2008,7 @@ function ReportsTab({ clients }) {
       <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 10, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Desde</div>
-          <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
+          <input type="date" value={desde} onChange={e => cambiarDesde(e.target.value)}
             style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, color: "#F2F5EE", fontSize: 13, padding: "8px 10px", fontFamily: "inherit", boxSizing: "border-box" }} />
         </div>
         <div style={{ flex: 1 }}>
@@ -2036,7 +2044,7 @@ function ReportsTab({ clients }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
           {visitasEnRango.map((v, i) => (
-            <div key={i} style={{ background: "#1E2E1F", borderRadius: 10, padding: "10px 12px" }}>
+            <div key={i} onClick={() => setVisitaDetalle(v)} style={{ background: "#1E2E1F", borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{v.clientName}</div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
@@ -2065,6 +2073,38 @@ function ReportsTab({ clients }) {
           <Icon d={ICONS.download} size={16} /> {generandoPdf ? "Generando..." : "Descargar PDF"}
         </button>
       </div>
+
+      {visitaDetalle && (
+        <div style={{ position: "fixed", inset: 0, background: "#0D1F0F", zIndex: 300, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "16px 16px 0", display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={() => setVisitaDetalle(null)} style={{ background: "none", border: "none", color: "#D4C24A", cursor: "pointer", padding: 4 }}>
+              <Icon d={ICONS.back} size={22} />
+            </button>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#F2F5EE" }}>{visitaDetalle.clientName}</div>
+              <div style={{ fontSize: 11, color: "#4A6B4C" }}>{visitaDetalle.date}</div>
+            </div>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 40px" }}>
+            <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 20, background: STATUS_CONFIG[visitaDetalle.status]?.bg, color: STATUS_CONFIG[visitaDetalle.status]?.color, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>
+              {STATUS_CONFIG[visitaDetalle.status]?.label}
+            </div>
+            {visitaDetalle.clientAddress && !/^https?:\/\//i.test(visitaDetalle.clientAddress) && (
+              <div style={{ fontSize: 13, color: "#8AA88C", marginBottom: 16 }}>{visitaDetalle.clientAddress}</div>
+            )}
+            {visitaDetalle.notes && (
+              <div style={{ fontSize: 14, color: "#F2F5EE", lineHeight: 1.6, marginBottom: 20, whiteSpace: "pre-wrap" }}>{visitaDetalle.notes}</div>
+            )}
+            {visitaDetalle.photos?.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {visitaDetalle.photos.map((p, j) => (
+                  <img key={j} src={p} alt="" style={{ width: "100%", borderRadius: 12, border: "1px solid #2E4A30" }} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
