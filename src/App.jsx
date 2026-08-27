@@ -319,8 +319,6 @@ const ICONS = {
   eyeOff:   "M17.94 17.94A10.94 10.94 0 0112 19c-7 0-11-7-11-7a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 7 11 7a18.5 18.5 0 01-2.16 3.19M14.12 14.12a3 3 0 11-4.24-4.24M1 1l22 22",
   report:   ["M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z", "M14 2v6h6", "M9 13h6", "M9 17h6"],
   download: ["M12 3v12", "M7 10l5 5 5-5", "M5 21h14"],
-  list:     ["M8 6h13", "M8 12h13", "M8 18h13", "M3 6h.01", "M3 12h.01", "M3 18h.01"],
-  phone:    "M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z",
 };
 
 // Detecta si una direccion guardada es en realidad un link de Maps
@@ -532,7 +530,6 @@ function TodayTab({ clients, onClientSelect }) {
   const [showNewVisitForm, setShowNewVisitForm] = useState(false);
   const [miUbicacion, setMiUbicacion] = useState(null);
   const [actualizandoUbicacion, setActualizandoUbicacion] = useState(false);
-  const [showRouteList, setShowRouteList] = useState(false);
 
   function actualizarUbicacion() {
     if (!navigator.geolocation) return;
@@ -702,45 +699,6 @@ function TodayTab({ clients, onClientSelect }) {
               <Icon d={ICONS.map} size={16} /> {arr.length > 1 ? `Recorrido parte ${i + 1} de ${arr.length}` : `Ver recorrido completo (${stopsWithAddress.length} paradas)`}
             </a>
           ))}
-          <button onClick={() => setShowRouteList(true)}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 0", color: "#C8D9C9", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            <Icon d={ICONS.list} size={15} /> Ver lista de paradas ({stopsOrdenadas.length})
-          </button>
-        </div>
-      )}
-
-      {showRouteList && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "flex-end" }} onClick={() => setShowRouteList(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#1E2E1F", borderRadius: "16px 16px 0 0", padding: "20px 16px 32px", width: "100%", maxWidth: 430, margin: "0 auto", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>Recorrido de hoy, en orden</div>
-              <button onClick={() => setShowRouteList(false)} style={{ background: "none", border: "none", color: "#4A6B4C", fontSize: 18, cursor: "pointer" }}>×</button>
-            </div>
-            <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: 16, flexShrink: 0 }}>Mismo orden que "Ver recorrido completo", con el nombre real de cada negocio</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
-              {stopsOrdenadas.map((evt, i) => {
-                const c = evt.client;
-                const nombreMostrado = c.nombreGoogle || c.name;
-                const direccionGuardada = (c.direccionGoogle || c.address || "").trim();
-                const esLink = /^https?:\/\//i.test(direccionGuardada);
-                const direccionMostrada = esLink ? "" : direccionGuardada;
-                return (
-                  <div key={i} style={{ background: "#0D1F0F", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: "#2A2410", color: "#D4C24A", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombreMostrado}</div>
-                      {direccionMostrada && <div style={{ fontSize: 11, color: "#4A6B4C", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{direccionMostrada}</div>}
-                    </div>
-                    <a href={getMapsUrl(c.address, c.name, c.lat, c.lng, c.placeId)} target="_blank" rel="noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#2A2410", color: "#D4C24A", border: "1px solid #2E4A30", borderRadius: 8, padding: "7px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>
-                      <Icon d={ICONS.map} size={13} /> Maps
-                    </a>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       )}
 
@@ -828,20 +786,10 @@ function TodayTab({ clients, onClientSelect }) {
 }
 
 // ─── VISIT FORM ──────────────────────────────────────────────────────────────
-function arFechaAIso(str) {
-  const fecha = parseFechaVisita(str);
-  if (!fecha) return fechaLocalISO(new Date());
-  return fechaLocalISO(fecha);
-}
-
-function VisitForm({ client, visit, onSave, onClose, guardando }) {
-  const editando = !!visit;
-  const [notes, setNotes] = useState(visit ? visit.notes : "");
-  const [status, setStatus] = useState(visit ? visit.status : client.status);
-  const [photos, setPhotos] = useState(visit ? fotosDeVisita(visit) : []);
-  const [comprimiendoFoto, setComprimiendoFoto] = useState(false);
-  const [fechaVisita, setFechaVisita] = useState(visit ? arFechaAIso(visit.date) : fechaLocalISO(new Date()));
-  const [tipo, setTipo] = useState(visit ? (visit.tipo || "visita") : "visita");
+function VisitForm({ client, onSave, onClose, guardando }) {
+  const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState(client.status);
+  const [photos, setPhotos] = useState([]);
   const fileRef = useRef();
 
   useEffect(() => {
@@ -854,45 +802,23 @@ function VisitForm({ client, visit, onSave, onClose, guardando }) {
 
   function handlePhoto(e) {
     const files = Array.from(e.target.files);
-    if (!files.length) return;
-    setComprimiendoFoto(true);
-    Promise.all(files.map(f => new Promise((resolve, reject) => {
+    files.forEach(f => {
       const reader = new FileReader();
-      reader.onload = async ev => {
-        try {
-          // Se comprime acá, antes de guardar, para que una foto pesada de la
-          // cámara del celular no rompa el guardado en Firestore (que tiene
-          // un límite de tamaño por campo).
-          const comprimida = await comprimirImagen(ev.target.result);
-          resolve(comprimida);
-        } catch (err) { reject(err); }
-      };
-      reader.onerror = reject;
+      reader.onload = ev => setPhotos(p => [...p, ev.target.result]);
       reader.readAsDataURL(f);
-    }))).then(comprimidas => {
-      setPhotos(p => [...p, ...comprimidas]);
-      setComprimiendoFoto(false);
-    }).catch(() => setComprimiendoFoto(false));
-  }
-
-  function isoAFechaAR(iso) {
-    const [y, m, d] = iso.split("-");
-    return `${d}/${m}/${y}`;
+    });
   }
 
   function handleSave() {
     if (!notes.trim()) return;
-    const visitGuardada = {
-      id: editando ? visit.id : Date.now(),
-      date: fechaVisita ? isoAFechaAR(fechaVisita) : new Date().toLocaleDateString("es-AR"),
+    const visit = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString("es-AR"),
       notes,
       status,
-      // Se guarda como texto (JSON), no como array, porque arrayUnion() de
-      // Firestore no admite un array anidado dentro del objeto que agrega.
-      photosData: photos.length ? JSON.stringify(photos) : "",
-      tipo,
+      photos,
     };
-    onSave(visitGuardada, status);
+    onSave(visit, status);
   }
 
   return (
@@ -902,31 +828,12 @@ function VisitForm({ client, visit, onSave, onClose, guardando }) {
           <Icon d={ICONS.back} size={22} />
         </button>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>{editando ? "Editar visita" : "Nueva visita"}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5EE" }}>Nueva visita</div>
           <div style={{ fontSize: 11, color: "#4A6B4C" }}>{client.name}</div>
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 100px" }}>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Tipo de contacto</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[{ v: "visita", label: "Visita", icon: ICONS.map }, { v: "llamado", label: "Llamado", icon: ICONS.phone }].map(t => (
-              <button key={t.v} onClick={() => setTipo(t.v)}
-                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", borderRadius: 10, border: `2px solid ${tipo === t.v ? "#D4C24A" : "#2E4A30"}`, background: tipo === t.v ? "#2A2410" : "#1E2E1F", color: tipo === t.v ? "#D4C24A" : "#4A6B4C", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                <Icon d={t.icon} size={14} /> {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Fecha de la visita</div>
-          <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)}
-            style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "11px 14px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
-          <div style={{ fontSize: 10, color: "#4A6B4C", marginTop: 6 }}>Podés cargar una visita de una semana anterior si te quedó pendiente</div>
-        </div>
-
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Estado del cliente</div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -956,13 +863,8 @@ function VisitForm({ client, visit, onSave, onClose, guardando }) {
                   style={{ position: "absolute", top: -6, right: -6, background: "#FF4D4D", border: "none", borderRadius: "50%", width: 20, height: 20, color: "white", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>×</button>
               </div>
             ))}
-            {comprimiendoFoto && (
-              <div style={{ width: 80, height: 80, borderRadius: 8, border: "2px dashed #2E4A30", background: "#1E2E1F", color: "#D4C24A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, textAlign: "center", padding: 4 }}>
-                Comprimiendo...
-              </div>
-            )}
-            <button onClick={() => fileRef.current.click()} disabled={comprimiendoFoto}
-              style={{ width: 80, height: 80, borderRadius: 8, border: "2px dashed #2E4A30", background: "#1E2E1F", color: "#4A6B4C", cursor: comprimiendoFoto ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, opacity: comprimiendoFoto ? 0.5 : 1 }}>
+            <button onClick={() => fileRef.current.click()}
+              style={{ width: 80, height: 80, borderRadius: 8, border: "2px dashed #2E4A30", background: "#1E2E1F", color: "#4A6B4C", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
               <Icon d={ICONS.camera} size={20} />
               <span style={{ fontSize: 10 }}>Agregar</span>
             </button>
@@ -972,9 +874,9 @@ function VisitForm({ client, visit, onSave, onClose, guardando }) {
       </div>
 
       <div style={{ padding: "12px 16px", background: "#0D1F0F", borderTop: "1px solid #1E2E1F" }}>
-        <button onClick={handleSave} disabled={!notes.trim() || guardando || comprimiendoFoto}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() && !guardando && !comprimiendoFoto ? "#D4C24A" : "#1E2E1F", color: notes.trim() && !guardando && !comprimiendoFoto ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() && !guardando && !comprimiendoFoto ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
-          {guardando ? (editando ? "Guardando cambios..." : "Guardando... no cierres ni refresques") : comprimiendoFoto ? "Procesando foto..." : editando ? "Guardar cambios" : "Guardar visita"}
+        <button onClick={handleSave} disabled={!notes.trim() || guardando}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 12, background: notes.trim() && !guardando ? "#D4C24A" : "#1E2E1F", color: notes.trim() && !guardando ? "#0D1F0F" : "#2E4A30", border: "none", fontSize: 15, fontWeight: 700, cursor: notes.trim() && !guardando ? "pointer" : "not-allowed", transition: "all 0.2s", fontFamily: "inherit" }}>
+          {guardando ? "Guardando... no cierres ni refresques" : "Guardar visita"}
         </button>
       </div>
     </div>
@@ -1071,7 +973,6 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(client.phone || "");
   const [showStatusPicker, setShowStatusPicker] = useState(false);
-  const [editingVisit, setEditingVisit] = useState(null);
 
   function handleSavePhone() {
     onUpdate({ ...client, phone: phoneInput.trim() });
@@ -1101,7 +1002,7 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
   function handleSaveAddress() {
     const direccionCambio = addressInput.trim() !== (client.address || "");
     const updated = { ...client, address: addressInput.trim() };
-    if (direccionCambio) { updated.lat = null; updated.lng = null; }
+    if (direccionCambio) { updated.lat = null; updated.lng = null; updated.placeId = null; updated.nombreGoogle = null; updated.direccionGoogle = null; }
     onUpdate(updated);
     setEditingAddress(false);
   }
@@ -1121,14 +1022,7 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
     setEditingEncargado(false);
   }
 
-  function handleSaveEditedVisit(visitEditada) {
-    const nuevasVisitas = client.visits.map(x => x.id === visitEditada.id ? visitEditada : x);
-    onUpdate({ ...client, visits: nuevasVisitas, status: visitEditada.status });
-    setEditingVisit(null);
-  }
-
   if (showVisitForm) return <VisitForm client={client} onSave={handleSaveVisit} onClose={() => setShowVisitForm(false)} guardando={guardandoVisita} />;
-  if (editingVisit) return <VisitForm client={client} visit={editingVisit} onSave={handleSaveEditedVisit} onClose={() => setEditingVisit(null)} guardando={false} />;
 
   const cfg = STATUS_CONFIG[client.status];
 
@@ -1297,19 +1191,9 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
               {[...client.visits].sort((a, b) => (b.id || 0) - (a.id || 0)).map(v => (
                 <div key={v.id} style={{ background: "#1E2E1F", borderRadius: 12, padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 3, background: "#0D1F0F", borderRadius: 6, padding: "2px 6px" }}>
-                        <Icon d={v.tipo === "llamado" ? ICONS.phone : ICONS.map} size={10} />
-                        <span style={{ fontSize: 10, color: "#8AA88C", fontWeight: 600 }}>{v.tipo === "llamado" ? "Llamado" : "Visita"}</span>
-                      </div>
-                    </div>
+                    <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 600 }}>{v.date}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <ThermoBadge status={v.status} />
-                      <button onClick={() => setEditingVisit(v)}
-                        style={{ background: "none", border: "none", color: "#4A6B4C", cursor: "pointer", padding: 2, display: "flex" }}>
-                        <Icon d={ICONS.edit} size={14} />
-                      </button>
                       <button
                         onClick={() => {
                           if (window.confirm(`¿Borrar la visita del ${v.date}? No se puede deshacer.`)) {
@@ -1321,10 +1205,10 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, allClients, onDele
                       </button>
                     </div>
                   </div>
-                  <div style={{ fontSize: 13, color: "#C8D9C9", lineHeight: 1.5, marginBottom: fotosDeVisita(v).length ? 10 : 0 }}>{v.notes}</div>
-                  {fotosDeVisita(v).length > 0 && (
+                  <div style={{ fontSize: 13, color: "#C8D9C9", lineHeight: 1.5, marginBottom: v.photos?.length ? 10 : 0 }}>{v.notes}</div>
+                  {v.photos?.length > 0 && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                      {fotosDeVisita(v).map((p, i) => (
+                      {v.photos.map((p, i) => (
                         <img key={i} src={p} alt="" style={{ width: 70, height: 70, borderRadius: 8, objectFit: "cover", border: "1px solid #2E4A30" }} />
                       ))}
                     </div>
@@ -1849,19 +1733,6 @@ function parseFechaVisita(str) {
   return new Date(y, m - 1, d);
 }
 
-// Las fotos de una visita se guardan como texto JSON (photosData) en vez de
-// array directo, porque Firestore's arrayUnion() no admite objetos con un
-// campo array anidado adentro (tira "invalid nested entity"). Esta función
-// lee fotos tanto del formato viejo (array directo, visitas ya guardadas)
-// como del nuevo (JSON en texto), para no romper nada de lo existente.
-function fotosDeVisita(v) {
-  if (Array.isArray(v.photos)) return v.photos;
-  if (v.photosData) {
-    try { return JSON.parse(v.photosData); } catch (e) { return []; }
-  }
-  return [];
-}
-
 function fechaLocalISO(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -1878,20 +1749,8 @@ function inicioDeSemana(date) {
   return d;
 }
 
-function semanaLabelDe(fechaStr) {
-  const fecha = parseFechaVisita(fechaStr);
-  if (!fecha) return "Semana sin fecha";
-  const inicio = inicioDeSemana(fecha);
-  const fin = new Date(inicio);
-  fin.setDate(fin.getDate() + 6);
-  const fmt = d => d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
-  return `Semana del ${fmt(inicio)} al ${fmt(fin)}`;
-}
-
-// Comprime una foto (dataURL) a un tamaño manejable. Se usa tanto al guardar
-// la visita (para no exceder el límite de tamaño de Firestore) como al armar
-// el PDF (para que el archivo no pese demasiado).
-function comprimirImagen(dataUrl, maxDim = 900, calidad = 0.65) {
+// Comprime una foto (dataURL) a un tamaño manejable para el PDF, sin tocar el original en Firestore
+function comprimirImagenParaPdf(dataUrl, maxDim = 700, calidad = 0.6) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
@@ -1910,35 +1769,14 @@ function comprimirImagen(dataUrl, maxDim = 900, calidad = 0.65) {
   });
 }
 
-function ReportsTab({ clients, onUpdateClient }) {
+function ReportsTab({ clients }) {
   const hoy = new Date();
   const [desde, setDesde] = useState(fechaLocalISO(inicioDeSemana(hoy)));
   const [hasta, setHasta] = useState(fechaLocalISO(hoy));
   const [generandoPdf, setGenerandoPdf] = useState(false);
-  const [editingVisit, setEditingVisit] = useState(null);
-
-  function handleGuardarEdicion(visitEditada) {
-    const cliente = clients.find(c => c.id === editingVisit.clientId);
-    if (cliente) {
-      const nuevasVisitas = (cliente.visits || []).map(x => x.id === visitEditada.id ? visitEditada : x);
-      onUpdateClient({ ...cliente, visits: nuevasVisitas, status: visitEditada.status });
-    }
-    setEditingVisit(null);
-  }
 
   function setRango(inicio, fin) {
     setDesde(fechaLocalISO(inicio));
-    setHasta(fechaLocalISO(fin));
-  }
-
-  function handleCambioDesde(valor) {
-    setDesde(valor);
-    // Al elegir "desde", completa "hasta" solo con la semana completa
-    // (6 días después). Si después el usuario quiere otro rango, puede
-    // tocar "hasta" a mano y queda como lo puso.
-    const inicio = new Date(valor + "T00:00:00");
-    const fin = new Date(inicio);
-    fin.setDate(fin.getDate() + 6);
     setHasta(fechaLocalISO(fin));
   }
   function estaSemana() { setRango(inicioDeSemana(hoy), hoy); }
@@ -1959,7 +1797,7 @@ function ReportsTab({ clients, onUpdateClient }) {
     (c.visits || []).forEach(v => {
       const fecha = parseFechaVisita(v.date);
       if (fecha && fecha >= desdeDate && fecha <= hastaDate) {
-        visitasEnRango.push({ ...v, clientId: c.id, clientName: c.name, clientAddress: c.address, clientPhone: c.phone, clientInstagram: c.instagram, clientEncargado: c.encargado });
+        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address });
       }
     });
   });
@@ -1974,10 +1812,6 @@ function ReportsTab({ clients, onUpdateClient }) {
     return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
 
-  function tipoLabel(v) {
-    return v.tipo === "llamado" ? "Llamado" : "Visita";
-  }
-
   function textoWhatsapp() {
     let txt = `*Informe de visitas*\n`;
     txt += `Periodo: ${formatFechaLarga(desde)} al ${formatFechaLarga(hasta)}\n\n`;
@@ -1985,10 +1819,7 @@ function ReportsTab({ clients, onUpdateClient }) {
     txt += `Comercios visitados: ${clientesUnicos}\n`;
     txt += `Caliente: ${conteoEstados.hot} - Tibio: ${conteoEstados.warm} - Frio: ${conteoEstados.cold}\n\n`;
     visitasEnRango.forEach((v, i) => {
-      txt += `${i + 1}. ${v.clientName} (${tipoLabel(v)}) - ${semanaLabelDe(v.date)} - ${STATUS_CONFIG[v.status]?.label || v.status}\n`;
-      if (v.clientEncargado) txt += `   Contacto: ${v.clientEncargado}\n`;
-      if (v.clientPhone) txt += `   WhatsApp: https://wa.me/${v.clientPhone}\n`;
-      if (v.clientInstagram) txt += `   Instagram: ${v.clientInstagram}\n`;
+      txt += `${i + 1}. ${v.clientName} - ${v.date} - ${STATUS_CONFIG[v.status]?.label || v.status}\n`;
       if (v.notes) txt += `   ${v.notes}\n`;
     });
     return txt;
@@ -2003,9 +1834,8 @@ function ReportsTab({ clients, onUpdateClient }) {
     try {
       // Comprimir las fotos antes de armar el PDF (no toca lo guardado en Firestore)
       const visitasParaPdf = await Promise.all(visitasEnRango.map(async v => {
-        const fotos = fotosDeVisita(v);
-        if (!fotos.length) return { ...v, photos: [] };
-        const comprimidas = await Promise.all(fotos.map(p => comprimirImagen(p, 700, 0.6)));
+        if (!v.photos || !v.photos.length) return v;
+        const comprimidas = await Promise.all(v.photos.map(p => comprimirImagenParaPdf(p)));
         return { ...v, photos: comprimidas };
       }));
 
@@ -2049,20 +1879,18 @@ function ReportsTab({ clients, onUpdateClient }) {
       doc.setFontSize(9);
       doc.setDrawColor(200);
       doc.text("Cliente", marginX, y);
-      doc.text("Tipo", marginX + 78, y);
-      doc.text("Semana", marginX + 105, y);
-      doc.text("Estado", marginX + 155, y);
+      doc.text("Fecha", marginX + 95, y);
+      doc.text("Estado", marginX + 130, y);
       y += 2;
       doc.line(marginX, y, pageWidth - marginX, y);
       y += 5;
       doc.setFont(undefined, "normal");
       visitasParaPdf.forEach(v => {
         nuevaPaginaSiNecesario(6);
-        const nombreCorto = doc.splitTextToSize(v.clientName, 73)[0];
+        const nombreCorto = doc.splitTextToSize(v.clientName, 88)[0];
         doc.text(nombreCorto, marginX, y);
-        doc.text(tipoLabel(v), marginX + 78, y);
-        doc.text(semanaLabelDe(v.date).replace("Semana del ", ""), marginX + 105, y);
-        doc.text(STATUS_CONFIG[v.status]?.label || v.status || "-", marginX + 155, y);
+        doc.text(v.date, marginX + 95, y);
+        doc.text(STATUS_CONFIG[v.status]?.label || v.status || "-", marginX + 130, y);
         y += 5.5;
       });
       y += 4;
@@ -2071,26 +1899,29 @@ function ReportsTab({ clients, onUpdateClient }) {
       doc.line(marginX, y, pageWidth - marginX, y);
       y += 10;
 
-      // Detalle, agrupado por semana
-      const semanasOrdenadas = [];
-      const porSemana = {};
+      // Detalle, agrupado por día
+      const diasOrdenados = [];
+      const porDia = {};
       visitasParaPdf.forEach(v => {
-        const label = semanaLabelDe(v.date);
-        if (!porSemana[label]) { porSemana[label] = []; semanasOrdenadas.push(label); }
-        porSemana[label].push(v);
+        if (!porDia[v.date]) { porDia[v.date] = []; diasOrdenados.push(v.date); }
+        porDia[v.date].push(v);
       });
 
       let contador = 0;
-      semanasOrdenadas.forEach(semanaLabel => {
+      diasOrdenados.forEach(fechaStr => {
+        const fechaObj = parseFechaVisita(fechaStr);
+        const nombreDia = fechaObj ? fechaObj.toLocaleDateString("es-AR", { weekday: "long" }) : "";
+        const nombreDiaCap = nombreDia ? nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1) : "";
+
         nuevaPaginaSiNecesario(14);
         doc.setFillColor(230, 230, 220);
         doc.rect(marginX, y - 4.5, pageWidth - marginX * 2, 7, "F");
         doc.setFontSize(10);
         doc.setFont(undefined, "bold");
-        doc.text(semanaLabel, marginX + 2, y);
+        doc.text(`${nombreDiaCap} ${fechaStr}`, marginX + 2, y);
         y += 9;
 
-        porSemana[semanaLabel].forEach(v => {
+        porDia[fechaStr].forEach(v => {
           contador++;
           nuevaPaginaSiNecesario(20);
 
@@ -2101,33 +1932,11 @@ function ReportsTab({ clients, onUpdateClient }) {
 
           doc.setFontSize(9);
           doc.setFont(undefined, "normal");
-          doc.text(`${tipoLabel(v)} · Estado: ${STATUS_CONFIG[v.status]?.label || v.status}`, marginX, y);
+          doc.text(`Estado: ${STATUS_CONFIG[v.status]?.label || v.status}`, marginX, y);
           y += 5;
 
           if (v.clientAddress && !/^https?:\/\//i.test(v.clientAddress)) {
             doc.text(v.clientAddress, marginX, y, { maxWidth: pageWidth - marginX * 2 });
-            y += 5;
-          }
-
-          if (v.clientEncargado) {
-            nuevaPaginaSiNecesario(6);
-            doc.text(`Contacto: ${v.clientEncargado}`, marginX, y);
-            y += 5;
-          }
-
-          if (v.clientPhone) {
-            nuevaPaginaSiNecesario(6);
-            doc.setTextColor(30, 90, 40);
-            doc.textWithLink(`WhatsApp: ${v.clientPhone}`, marginX, y, { url: `https://wa.me/${v.clientPhone}` });
-            doc.setTextColor(0);
-            y += 5;
-          }
-
-          if (v.clientInstagram) {
-            nuevaPaginaSiNecesario(6);
-            doc.setTextColor(30, 90, 40);
-            doc.textWithLink(`Instagram: ${v.clientInstagram}`, marginX, y, { url: v.clientInstagram });
-            doc.setTextColor(0);
             y += 5;
           }
 
@@ -2179,11 +1988,6 @@ function ReportsTab({ clients, onUpdateClient }) {
     setGenerandoPdf(false);
   }
 
-  if (editingVisit) {
-    const cliente = clients.find(c => c.id === editingVisit.clientId);
-    if (cliente) return <VisitForm client={cliente} visit={editingVisit} onSave={handleGuardarEdicion} onClose={() => setEditingVisit(null)} guardando={false} />;
-  }
-
   return (
     <div style={{ padding: "16px 16px 100px" }}>
       <div style={{ fontSize: 18, fontWeight: 700, color: "#F2F5EE", marginBottom: 14 }}>Informe de visitas</div>
@@ -2196,7 +2000,7 @@ function ReportsTab({ clients, onUpdateClient }) {
       <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 10, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Desde</div>
-          <input type="date" value={desde} onChange={e => handleCambioDesde(e.target.value)}
+          <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
             style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 8, color: "#F2F5EE", fontSize: 13, padding: "8px 10px", fontFamily: "inherit", boxSizing: "border-box" }} />
         </div>
         <div style={{ flex: 1 }}>
@@ -2232,24 +2036,16 @@ function ReportsTab({ clients, onUpdateClient }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
           {visitasEnRango.map((v, i) => (
-            <div key={i} onClick={() => setEditingVisit(v)} style={{ background: "#1E2E1F", borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
+            <div key={i} style={{ background: "#1E2E1F", borderRadius: 10, padding: "10px 12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{v.clientName}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
-                  <Icon d={ICONS.edit} size={12} color="#4A6B4C" />
-                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
               </div>
-              <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{tipoLabel(v)} · {v.date}</div>
-              {(v.clientEncargado || v.clientPhone || v.clientInstagram) && (
-                <div style={{ fontSize: 10, color: "#4A6B4C", marginBottom: 4 }}>
-                  {[v.clientEncargado, v.clientPhone, v.clientInstagram].filter(Boolean).join(" · ")}
-                </div>
-              )}
+              <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{v.date}</div>
               {v.notes && <div style={{ fontSize: 12, color: "#8AA88C" }}>{v.notes}</div>}
-              {fotosDeVisita(v).length > 0 && (
+              {v.photos?.length > 0 && (
                 <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                  {fotosDeVisita(v).map((p, j) => (
+                  {v.photos.map((p, j) => (
                     <img key={j} src={p} alt="" style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", border: "1px solid #2E4A30" }} />
                   ))}
                 </div>
@@ -2364,7 +2160,7 @@ export default function GrowCRM() {
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
           {tab === "clients" && <ClientsTab clients={clients} deletedIds={deletedIds} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
           {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} onSelectClient={setSelectedClient} />}
-          {tab === "reports" && <ReportsTab clients={clients} onUpdateClient={updateClient} />}
+          {tab === "reports" && <ReportsTab clients={clients} />}
         </div>
 
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#0D1F0F", borderTop: "1px solid #1E2E1F", display: "flex", zIndex: 50 }}>
@@ -2404,7 +2200,7 @@ export default function GrowCRM() {
         <ClientForm client={editClient} onSave={updated => {
           const direccionCambio = (updated.address || "") !== (editClient.address || "");
           const merged = { ...editClient, ...updated };
-          if (direccionCambio) { merged.lat = null; merged.lng = null; }
+          if (direccionCambio) { merged.lat = null; merged.lng = null; merged.placeId = null; merged.nombreGoogle = null; merged.direccionGoogle = null; }
           updateClient(merged);
           setEditClient(null);
         }} onClose={() => setEditClient(null)} />
