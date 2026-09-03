@@ -811,6 +811,13 @@ function VisitForm({ client, onSave, onClose, guardando, visitaExistente }) {
   const [notes, setNotes] = useState(visitaExistente?.notes || "");
   const [status, setStatus] = useState(visitaExistente?.status || client.status);
   const [tipo, setTipo] = useState(visitaExistente?.tipo || "visita");
+  const [fechaVisita, setFechaVisita] = useState(() => {
+    if (visitaExistente?.date) {
+      const d = parseFechaVisita(visitaExistente.date);
+      if (d) return fechaLocalISO(d);
+    }
+    return fechaLocalISO(new Date());
+  });
   const [photos, setPhotos] = useState(visitaExistente?.photos || []);
   const fileRef = useRef();
 
@@ -838,7 +845,7 @@ function VisitForm({ client, onSave, onClose, guardando, visitaExistente }) {
     if (!notes.trim()) return;
     const visit = {
       id: visitaExistente?.id || Date.now(),
-      date: visitaExistente?.date || new Date().toLocaleDateString("es-AR"),
+      date: new Date(fechaVisita + "T00:00:00").toLocaleDateString("es-AR"),
       notes,
       status,
       photos,
@@ -860,6 +867,12 @@ function VisitForm({ client, onSave, onClose, guardando, visitaExistente }) {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 100px" }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Fecha de la visita</div>
+          <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)}
+            style={{ width: "100%", background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, color: "#F2F5EE", fontSize: 14, padding: "12px 14px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+        </div>
+
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#4A6B4C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Tipo</div>
           <div style={{ display: "flex", gap: 8 }}>
