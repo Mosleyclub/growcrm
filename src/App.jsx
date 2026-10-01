@@ -1578,6 +1578,34 @@ function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDelete
   );
 }
 
+// Muchos links de Google Maps ya traen las coordenadas adentro de la URL
+// (los que se generan al tocar "Compartir" desde la app de Maps en el celu,
+// o al copiar la barra de direcciones del navegador). Si están, las sacamos
+// directo de ahí, sin gastar una consulta a la API — instantáneo y gratis.
+// Los links cortos (maps.app.goo.gl/xxxx) NO traen coordenadas visibles,
+// esos no se pueden resolver desde el navegador (hay que abrirlos para que
+// se expandan primero).
+function extractCoordsFromMapsLink(address) {
+  if (!address) return null;
+  const text = address.trim();
+  if (!/^https?:\/\//i.test(text)) return null;
+  const patterns = [
+    /@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/,       // .../@-34.603722,-58.381592,17z
+    /[?&]q=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/,  // ?q=-34.603,-58.381
+    /[?&]ll=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/, // ?ll=-34.603,-58.381
+    /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/,   // .../!3d-34.603722!4d-58.381592
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const lat = parseFloat(m[1]);
+      const lng = parseFloat(m[2]);
+      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
+  }
+  return null; // probablemente un link corto (maps.app.goo.gl) — no se puede resolver así
+}
+
 // ─── MAPA TAB (ubicación de todos los clientes) ─────────────────────────────
 function MapaTab({ clients, onSelectClient }) {
   const mapRef = useRef(null);
@@ -1610,17 +1638,31 @@ function MapaTab({ clients, onSelectClient }) {
     .map(c => (c.lat && c.lng) ? c : (resueltasExtra[c.id] ? { ...c, ...resueltasExtra[c.id] } : c))
     .filter(c => c.lat && c.lng);
 
-  // Si un cliente tiene dirección de texto pero nunca se le calcularon las
-  // coordenadas (porque se cargó a mano, sin pasar por el alta con geocoding),
-  // lo geocodificamos acá mismo y guardamos el resultado en su ficha para no
-  // tener que repetirlo después.
+  // Resuelve coordenadas para los clientes que todavía no las tienen: si la
+  // dirección es un link de Maps con las coordenadas adentro, las saca directo
+  // de la URL (instantáneo); si es texto, geocodifica contra la API de Google.
+  // En los dos casos guarda el resultado en la ficha para no repetirlo después.
   useEffect(() => {
-    const pendientes = clients.filter(c => !(c.lat && c.lng) && c.address && !/^https?:\/\//i.test(c.address.trim()) && !resueltasExtra[c.id]);
-    if (pendientes.length === 0) return;
+    const sinCoords = clients.filter(c => !(c.lat && c.lng) && c.address && !resueltasExtra[c.id]);
+    if (sinCoords.length === 0) return;
+
+    const porLink = sinCoords.filter(c => /^https?:\/\//i.test(c.address.trim()));
+    const porTexto = sinCoords.filter(c => !/^https?:\/\//i.test(c.address.trim()));
+
+    // Links: se resuelven todos de una, no hace falta llamar a ninguna API.
+    porLink.forEach(c => {
+      const coords = extractCoordsFromMapsLink(c.address);
+      if (coords) {
+        setResueltasExtra(prev => ({ ...prev, [c.id]: coords }));
+        updateDoc(doc(db, "clients", String(c.id)), { lat: coords.lat, lng: coords.lng }).catch(() => {});
+      }
+    });
+
+    if (porTexto.length === 0) return;
     let cancelado = false;
     setGeocodificando(true);
     (async () => {
-      for (const c of pendientes) {
+      for (const c of porTexto) {
         if (cancelado) break;
         try {
           const coords = await geocodeAddress(c.address);
@@ -1677,6 +1719,7 @@ function MapaTab({ clients, onSelectClient }) {
   }, [cargado, clientesConCoords]);
 
   const sinDireccion = clients.filter(c => !(c.lat && c.lng) && !resueltasExtra[c.id] && !c.address).length;
+  const linkSinResolver = clients.filter(c => !(c.lat && c.lng) && !resueltasExtra[c.id] && c.address && /^https?:\/\//i.test(c.address.trim()) && !extractCoordsFromMapsLink(c.address)).length;
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
@@ -1694,6 +1737,7 @@ function MapaTab({ clients, onSelectClient }) {
         {clientesConCoords.length} cliente(s) marcados en el mapa, coloreados según su estado.
         {geocodificando && " Ubicando algunos más..."}
         {sinDireccion > 0 && ` ${sinDireccion} cliente(s) todavía no tienen dirección cargada y no pueden aparecer — cargala en su ficha.`}
+        {linkSinResolver > 0 && ` ${linkSinResolver} cliente(s) tienen un link corto de Maps (tipo maps.app.goo.gl) que no se puede leer solo — abrilo una vez desde el celu, copiá el link que se expande (con la dirección completa) y pegalo en la ficha para que se ubique.`}
         {" Tocá un marcador para ver el nombre, doble toque para abrir la ficha."}
       </div>
     </div>
