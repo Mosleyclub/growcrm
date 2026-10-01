@@ -1578,6 +1578,128 @@ function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDelete
   );
 }
 
+// ─── MAPA TAB (ubicación de todos los clientes) ─────────────────────────────
+function MapaTab({ clients, onSelectClient }) {
+  const mapRef = useRef(null);
+  const [cargado, setCargado] = useState(!!(window.google && window.google.maps));
+  const [error, setError] = useState("");
+  const [resueltasExtra, setResueltasExtra] = useState({}); // { clientId: {lat, lng} } para los geocodificados al vuelo
+  const [geocodificando, setGeocodificando] = useState(false);
+
+  useEffect(() => {
+    if (window.google && window.google.maps) { setCargado(true); return; }
+    const scriptId = "google-maps-js-grow";
+    if (document.getElementById(scriptId)) {
+      const chequeo = setInterval(() => {
+        if (window.google && window.google.maps) { setCargado(true); clearInterval(chequeo); }
+      }, 300);
+      return () => clearInterval(chequeo);
+    }
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GEOCODING_API_KEY}`;
+    script.async = true;
+    script.onload = () => setCargado(true);
+    script.onerror = () => setError("No pude cargar Google Maps. Revisá tu conexión y volvé a intentar.");
+    document.head.appendChild(script);
+  }, []);
+
+  // Clientes que ya tienen lat/lng guardados, más los que resolvimos al vuelo
+  // en este mismo ratito (ver el efecto de geocodificación de más abajo).
+  const clientesConCoords = clients
+    .map(c => (c.lat && c.lng) ? c : (resueltasExtra[c.id] ? { ...c, ...resueltasExtra[c.id] } : c))
+    .filter(c => c.lat && c.lng);
+
+  // Si un cliente tiene dirección de texto pero nunca se le calcularon las
+  // coordenadas (porque se cargó a mano, sin pasar por el alta con geocoding),
+  // lo geocodificamos acá mismo y guardamos el resultado en su ficha para no
+  // tener que repetirlo después.
+  useEffect(() => {
+    const pendientes = clients.filter(c => !(c.lat && c.lng) && c.address && !/^https?:\/\//i.test(c.address.trim()) && !resueltasExtra[c.id]);
+    if (pendientes.length === 0) return;
+    let cancelado = false;
+    setGeocodificando(true);
+    (async () => {
+      for (const c of pendientes) {
+        if (cancelado) break;
+        try {
+          const coords = await geocodeAddress(c.address);
+          if (coords) {
+            setResueltasExtra(prev => ({ ...prev, [c.id]: coords }));
+            updateDoc(doc(db, "clients", String(c.id)), { lat: coords.lat, lng: coords.lng }).catch(() => {});
+          }
+        } catch (e) { /* si uno falla, seguimos con el resto */ }
+      }
+      if (!cancelado) setGeocodificando(false);
+    })();
+    return () => { cancelado = true; };
+  }, [clients]);
+
+  useEffect(() => {
+    if (!cargado || !mapRef.current || !window.google) return;
+    const centro = clientesConCoords.length > 0
+      ? { lat: clientesConCoords[0].lat, lng: clientesConCoords[0].lng }
+      : { lat: -34.6037, lng: -58.3816 }; // Buenos Aires, si todavía no hay ninguno con coordenadas
+    const map = new window.google.maps.Map(mapRef.current, {
+      center: centro,
+      zoom: clientesConCoords.length > 0 ? 6 : 5,
+    });
+    if (clientesConCoords.length > 1) {
+      const bounds = new window.google.maps.LatLngBounds();
+      clientesConCoords.forEach(c => bounds.extend({ lat: c.lat, lng: c.lng }));
+      map.fitBounds(bounds);
+    }
+    clientesConCoords.forEach(c => {
+      const color = STATUS_CONFIG[c.status]?.color || "#D4C24A";
+      const marker = new window.google.maps.Marker({
+        position: { lat: c.lat, lng: c.lng },
+        map,
+        title: c.name,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: color,
+          fillOpacity: 1,
+          strokeColor: "#0D1F0F",
+          strokeWeight: 2,
+        },
+      });
+      const info = new window.google.maps.InfoWindow({
+        content: `<div style="font-family:sans-serif;padding:2px;max-width:200px;"><strong>${c.name}</strong>${c.address && !/^https?:\/\//i.test(c.address) ? `<br/>${c.address}` : ""}<br/><span style="color:${color};font-weight:700;">${STATUS_CONFIG[c.status]?.label || ""}</span></div>`,
+      });
+      marker.addListener("click", () => {
+        info.open(map, marker);
+      });
+      marker.addListener("dblclick", () => {
+        if (onSelectClient) onSelectClient(c);
+      });
+    });
+  }, [cargado, clientesConCoords]);
+
+  const sinDireccion = clients.filter(c => !(c.lat && c.lng) && !resueltasExtra[c.id] && !c.address).length;
+
+  return (
+    <div style={{ padding: "0 16px 100px" }}>
+      <div style={{ paddingTop: 24, paddingBottom: 16 }}>
+        <div style={{ fontSize: 11, color: "#D4C24A", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Mapa</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#F2F5EE", marginTop: 2 }}>{clientesConCoords.length} ubicados</div>
+      </div>
+      {error && (
+        <div style={{ background: "#1E2E1F", borderRadius: 10, padding: 20, textAlign: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 13, color: "#4A6B4C" }}>{error}</div>
+        </div>
+      )}
+      <div ref={mapRef} style={{ width: "100%", height: "65vh", borderRadius: 12, overflow: "hidden", background: "#1E2E1F" }} />
+      <div style={{ fontSize: 12, color: "#4A6B4C", marginTop: 10, lineHeight: 1.5 }}>
+        {clientesConCoords.length} cliente(s) marcados en el mapa, coloreados según su estado.
+        {geocodificando && " Ubicando algunos más..."}
+        {sinDireccion > 0 && ` ${sinDireccion} cliente(s) todavía no tienen dirección cargada y no pueden aparecer — cargala en su ficha.`}
+        {" Tocá un marcador para ver el nombre, doble toque para abrir la ficha."}
+      </div>
+    </div>
+  );
+}
+
 // ─── SEARCH TAB (buscar negocios nuevos por zona/rubro) ────────────────────
 function SearchTab({ clients, onQuickAdd, onSelectClient }) {
   const [rubro, setRubro] = useState("");
@@ -2270,6 +2392,7 @@ export default function GrowCRM() {
         <div style={{ paddingBottom: 0 }}>
           {tab === "today" && <TodayTab clients={clients} onClientSelect={setSelectedClient} />}
           {tab === "clients" && <ClientsTab clients={clients} deletedIds={deletedIds} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
+          {tab === "mapa" && <MapaTab clients={clients} onSelectClient={setSelectedClient} />}
           {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} onSelectClient={setSelectedClient} />}
           {tab === "reports" && <ReportsTab clients={clients} />}
         </div>
@@ -2278,6 +2401,7 @@ export default function GrowCRM() {
           {[
             { key: "today", label: "Hoy", icon: ICONS.calendar },
             { key: "clients", label: "Clientes", icon: ICONS.clients },
+            { key: "mapa", label: "Mapa", icon: ICONS.map },
             { key: "search", label: "Buscar", icon: ICONS.search },
             { key: "reports", label: "Informes", icon: ICONS.report },
           ].map(t => (
