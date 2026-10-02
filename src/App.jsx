@@ -1008,6 +1008,18 @@ function obtenerClientesCercanos(clienteActual, todosLosClientes, maxResultados 
     .slice(0, maxResultados);
 }
 
+// Mismo lightbox que ya usa Lion para las fotos de las visitas: fondo oscuro,
+// la foto centrada y ampliada, se cierra tocando afuera o la X.
+function FotoLightbox({ src, onClose }) {
+  if (!src) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <img src={src} alt="Foto ampliada" style={{ maxWidth: "92%", maxHeight: "85vh", borderRadius: 10, boxShadow: "0 8px 30px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()} />
+      <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, background: "none", border: "none", color: "#F2F5EE", fontSize: 28, cursor: "pointer", lineHeight: 1 }}>✕</button>
+    </div>
+  );
+}
+
 function ClientDetail({ client, onBack, onUpdate, onAddVisit, onUpdateVisit, onDeleteVisit, allClients, onDelete, onSelectClient }) {
   const [showNearby, setShowNearby] = useState(false);
   const nearbyClients = allClients ? obtenerClientesCercanos(client, allClients, 3) : [];
@@ -1025,6 +1037,7 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, onUpdateVisit, onD
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(client.phone || "");
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
 
   function handleSavePhone() {
     onUpdate({ ...client, phone: phoneInput.trim() });
@@ -1280,7 +1293,7 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, onUpdateVisit, onD
                   {v.photos?.length > 0 && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                       {v.photos.map((p, i) => (
-                        <img key={i} src={p} alt="" style={{ width: 70, height: 70, borderRadius: 8, objectFit: "cover", border: "1px solid #2E4A30" }} />
+                        <img key={i} src={p} alt="" style={{ width: 70, height: 70, borderRadius: 8, objectFit: "cover", border: "1px solid #2E4A30", cursor: "pointer" }} onClick={() => setFotoAmpliada(p)} />
                       ))}
                     </div>
                   )}
@@ -1290,6 +1303,7 @@ function ClientDetail({ client, onBack, onUpdate, onAddVisit, onUpdateVisit, onD
           )}
         </div>
       </div>
+      <FotoLightbox src={fotoAmpliada} onClose={() => setFotoAmpliada(null)} />
     </div>
   );
 }
@@ -1638,30 +1652,50 @@ function MapaTab({ clients, onSelectClient }) {
     .map(c => (c.lat && c.lng) ? c : (resueltasExtra[c.id] ? { ...c, ...resueltasExtra[c.id] } : c))
     .filter(c => c.lat && c.lng);
 
-  // Resuelve coordenadas para los clientes que todavía no las tienen: si la
-  // dirección es un link de Maps con las coordenadas adentro, las saca directo
-  // de la URL (instantáneo); si es texto, geocodifica contra la API de Google.
-  // En los dos casos guarda el resultado en la ficha para no repetirlo después.
+  // Resuelve coordenadas para los clientes que todavía no las tienen:
+  // - Si la dirección es un link de Maps con las coordenadas adentro, las
+  //   saca directo de la URL (instantáneo, sin API).
+  // - Si es un link corto (maps.app.goo.gl) que no las trae a la vista, le
+  //   pide al servidor que siga el link y las averigüe (misma función que
+  //   ya usa Lion para esto).
+  // - Si es texto, geocodifica contra la API de Google.
+  // En todos los casos guarda el resultado en la ficha para no repetirlo después.
   useEffect(() => {
     const sinCoords = clients.filter(c => !(c.lat && c.lng) && c.address && !resueltasExtra[c.id]);
     if (sinCoords.length === 0) return;
 
     const porLink = sinCoords.filter(c => /^https?:\/\//i.test(c.address.trim()));
     const porTexto = sinCoords.filter(c => !/^https?:\/\//i.test(c.address.trim()));
+    const linksSinCoords = [];
 
-    // Links: se resuelven todos de una, no hace falta llamar a ninguna API.
+    // Links largos: se resuelven todos de una, no hace falta llamar a ninguna API.
     porLink.forEach(c => {
       const coords = extractCoordsFromMapsLink(c.address);
       if (coords) {
         setResueltasExtra(prev => ({ ...prev, [c.id]: coords }));
         updateDoc(doc(db, "clients", String(c.id)), { lat: coords.lat, lng: coords.lng }).catch(() => {});
+      } else {
+        linksSinCoords.push(c); // probablemente un link corto
       }
     });
 
-    if (porTexto.length === 0) return;
     let cancelado = false;
-    setGeocodificando(true);
+    if (porTexto.length > 0 || linksSinCoords.length > 0) setGeocodificando(true);
+
     (async () => {
+      // Links cortos: le pedimos al servidor que los siga y saque las coordenadas.
+      for (const c of linksSinCoords) {
+        if (cancelado) break;
+        try {
+          const res = await fetch(`/api/resolve-direccion?url=${encodeURIComponent(c.address)}`);
+          const data = await res.json();
+          if (data.ok && data.lat && data.lng) {
+            setResueltasExtra(prev => ({ ...prev, [c.id]: { lat: data.lat, lng: data.lng } }));
+            updateDoc(doc(db, "clients", String(c.id)), { lat: data.lat, lng: data.lng }).catch(() => {});
+          }
+        } catch (e) { /* si uno falla, seguimos con el resto */ }
+      }
+      // Direcciones de texto: geocodificación normal.
       for (const c of porTexto) {
         if (cancelado) break;
         try {
@@ -1719,7 +1753,6 @@ function MapaTab({ clients, onSelectClient }) {
   }, [cargado, clientesConCoords]);
 
   const sinDireccion = clients.filter(c => !(c.lat && c.lng) && !resueltasExtra[c.id] && !c.address).length;
-  const linkSinResolver = clients.filter(c => !(c.lat && c.lng) && !resueltasExtra[c.id] && c.address && /^https?:\/\//i.test(c.address.trim()) && !extractCoordsFromMapsLink(c.address)).length;
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
@@ -1735,9 +1768,8 @@ function MapaTab({ clients, onSelectClient }) {
       <div ref={mapRef} style={{ width: "100%", height: "65vh", borderRadius: 12, overflow: "hidden", background: "#1E2E1F" }} />
       <div style={{ fontSize: 12, color: "#4A6B4C", marginTop: 10, lineHeight: 1.5 }}>
         {clientesConCoords.length} cliente(s) marcados en el mapa, coloreados según su estado.
-        {geocodificando && " Ubicando algunos más..."}
+        {geocodificando && " Ubicando algunos más (los links cortos de Maps pueden tardar un segundo extra)..."}
         {sinDireccion > 0 && ` ${sinDireccion} cliente(s) todavía no tienen dirección cargada y no pueden aparecer — cargala en su ficha.`}
-        {linkSinResolver > 0 && ` ${linkSinResolver} cliente(s) tienen un link corto de Maps (tipo maps.app.goo.gl) que no se puede leer solo — abrilo una vez desde el celu, copiá el link que se expande (con la dirección completa) y pegalo en la ficha para que se ubique.`}
         {" Tocá un marcador para ver el nombre, doble toque para abrir la ficha."}
       </div>
     </div>
@@ -2006,12 +2038,13 @@ function comprimirImagenParaPdf(dataUrl, maxDim = 700, calidad = 0.6) {
   });
 }
 
-function ReportsTab({ clients }) {
+function ReportsTab({ clients, onSelectClient }) {
   const hoy = new Date();
   const [desde, setDesde] = useState(fechaLocalISO(inicioDeSemana(hoy)));
   const [hasta, setHasta] = useState(fechaLocalISO(hoy));
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [visitaDetalle, setVisitaDetalle] = useState(null);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
 
   function setRango(inicio, fin) {
     setDesde(fechaLocalISO(inicio));
@@ -2042,7 +2075,7 @@ function ReportsTab({ clients }) {
     (c.visits || []).forEach(v => {
       const fecha = parseFechaVisita(v.date);
       if (fecha && fecha >= desdeDate && fecha <= hastaDate) {
-        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address });
+        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientId: c.id });
       }
     });
   });
@@ -2283,7 +2316,17 @@ function ReportsTab({ clients }) {
           {visitasEnRango.map((v, i) => (
             <div key={i} onClick={() => setVisitaDetalle(v)} style={{ background: "#1E2E1F", borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE" }}>{v.clientName}</div>
+                <div
+                  style={{ fontSize: 13, fontWeight: 600, color: "#F2F5EE", textDecoration: onSelectClient ? "underline" : "none" }}
+                  onClick={e => {
+                    if (!onSelectClient) return;
+                    e.stopPropagation();
+                    const c = clients.find(c => c.id === v.clientId);
+                    if (c) onSelectClient(c);
+                  }}
+                >
+                  {v.clientName}
+                </div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: STATUS_CONFIG[v.status]?.color }}>{STATUS_CONFIG[v.status]?.label}</div>
               </div>
               <div style={{ fontSize: 11, color: "#4A6B4C", marginBottom: v.notes ? 4 : 0 }}>{v.date}</div>
@@ -2291,7 +2334,8 @@ function ReportsTab({ clients }) {
               {v.photos?.length > 0 && (
                 <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                   {v.photos.map((p, j) => (
-                    <img key={j} src={p} alt="" style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", border: "1px solid #2E4A30" }} />
+                    <img key={j} src={p} alt="" style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", border: "1px solid #2E4A30", cursor: "pointer" }}
+                      onClick={e => { e.stopPropagation(); setFotoAmpliada(p); }} />
                   ))}
                 </div>
               )}
@@ -2317,10 +2361,20 @@ function ReportsTab({ clients }) {
             <button onClick={() => setVisitaDetalle(null)} style={{ background: "none", border: "none", color: "#D4C24A", cursor: "pointer", padding: 4 }}>
               <Icon d={ICONS.back} size={22} />
             </button>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#F2F5EE" }}>{visitaDetalle.clientName}</div>
               <div style={{ fontSize: 11, color: "#4A6B4C" }}>{visitaDetalle.date}</div>
             </div>
+            {onSelectClient && (
+              <button
+                onClick={() => {
+                  const c = clients.find(c => c.id === visitaDetalle.clientId);
+                  if (c) { onSelectClient(c); setVisitaDetalle(null); }
+                }}
+                style={{ background: "#2A2410", border: "1px solid #D4C24A", borderRadius: 8, padding: "6px 10px", color: "#D4C24A", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                Ver ficha
+              </button>
+            )}
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 40px" }}>
             <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 20, background: STATUS_CONFIG[visitaDetalle.status]?.bg, color: STATUS_CONFIG[visitaDetalle.status]?.color, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>
@@ -2335,13 +2389,14 @@ function ReportsTab({ clients }) {
             {visitaDetalle.photos?.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {visitaDetalle.photos.map((p, j) => (
-                  <img key={j} src={p} alt="" style={{ width: "100%", borderRadius: 12, border: "1px solid #2E4A30" }} />
+                  <img key={j} src={p} alt="" style={{ width: "100%", borderRadius: 12, border: "1px solid #2E4A30", cursor: "pointer" }} onClick={() => setFotoAmpliada(p)} />
                 ))}
               </div>
             )}
           </div>
         </div>
       )}
+      <FotoLightbox src={fotoAmpliada} onClose={() => setFotoAmpliada(null)} />
     </div>
   );
 }
@@ -2438,7 +2493,7 @@ export default function GrowCRM() {
           {tab === "clients" && <ClientsTab clients={clients} deletedIds={deletedIds} onClientSelect={setSelectedClient} onAddClient={() => setShowClientForm(true)} onDeleteClient={deleteClient} rawAddClient={fsAddClient} rawUpdateClient={fsUpdateClient} />}
           {tab === "mapa" && <MapaTab clients={clients} onSelectClient={setSelectedClient} />}
           {tab === "search" && <SearchTab clients={clients} onQuickAdd={setPrefillClient} onSelectClient={setSelectedClient} />}
-          {tab === "reports" && <ReportsTab clients={clients} />}
+          {tab === "reports" && <ReportsTab clients={clients} onSelectClient={setSelectedClient} />}
         </div>
 
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#0D1F0F", borderTop: "1px solid #1E2E1F", display: "flex", zIndex: 50 }}>
