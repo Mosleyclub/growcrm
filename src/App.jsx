@@ -186,7 +186,11 @@ function rowToClient(row) {
   const [id, name, phone, address, type, status, instagram, notes, lastModified] = row;
   if (!id || !name) return null;
   return {
-    id: Number(id),
+    // OJO: el id de Firestore siempre es texto (muchos clientes viejos tienen
+    // ids tipo "O8oTMfl2muBgN4iMziLB", no un número). Convertirlo con Number()
+    // los mandaba a todos a NaN y los hacía pisarse entre sí — eso fue lo que
+    // causó el borrado masivo de visitas. Nunca más Number() acá.
+    id: String(id).trim(),
     name: name || "",
     phone: phone || "",
     address: address || "",
@@ -1429,7 +1433,13 @@ function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDelete
       if (sheetC && fieldsDiffer(localC, sheetC)) {
         const localTime = localC.lastModified || 0;
         const sheetTime = sheetC.lastModified || 0;
-        if (sheetTime >= localTime) {
+        // Antes decía ">= localTime": si los dos lados tenían el mismo
+        // "lastModified" (o venían en 0, sin fecha), la planilla igual
+        // ganaba y pisaba lo que había en la app. Ahora la planilla solo
+        // pisa cuando es un dato realmente más nuevo (fecha mayor a 0 y
+        // estrictamente posterior). Si hay empate o dudas, gana lo que ya
+        // está en la app.
+        if (sheetTime > localTime && sheetTime > 0) {
           let merged = { ...localC, ...sheetC, visits: localC.visits || [], lastModified: Date.now() };
           const addressChanged = (sheetC.address || "") !== (localC.address || "");
           if (addressChanged && sheetC.address) {
@@ -1473,21 +1483,21 @@ function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDelete
       }
     }
 
+    // IMPORTANTE: la sincronización con Sheets NUNCA borra clientes
+    // automáticamente. Antes había un bloque acá que, si un cliente de la
+    // app no aparecía en la planilla, lo eliminaba (visitas, fotos, fichas,
+    // todo) detrás de un solo cartel de confirmación que no avisaba lo que
+    // realmente se perdía. Ese fue el origen del borrado masivo de datos.
+    // Ahora, si un cliente de la app no está en la planilla, sólo se avisa
+    // por consola para revisar a mano — nunca se borra nada solo. Para
+    // borrar un cliente hay que hacerlo a propósito desde su ficha.
     if (!isSheetEmpty) {
-      const ahora = Date.now();
-      const UMBRAL = 1000 * 60 * 60 * 24 * 2; // 2 días
-      const toDelete = [...localMap.values()].filter(c => 
-        !sheetMap.has(c.id) && (ahora - (c.lastModified || 0)) > UMBRAL
-      );
-      if (toDelete.length > 0) {
-        const nombres = toDelete.map(c => c.name).join(", ");
-        const confirmar = window.confirm(
-          `Estos clientes ya no están en la planilla:\n\n${nombres}\n\n¿Confirmás eliminarlos también de la app?`
+      const ausentes = [...localMap.values()].filter(c => !sheetMap.has(c.id));
+      if (ausentes.length > 0) {
+        console.warn(
+          `Sincronización: ${ausentes.length} cliente(s) de la app no aparecen en la planilla (no se borra nada automáticamente): ` +
+          ausentes.map(c => c.name).join(", ")
         );
-        if (confirmar) {
-          for (const c of toDelete) await onDeleteClient(c.id);
-          for (const c of toDelete) localMap.delete(c.id);
-        }
       }
     }
 
