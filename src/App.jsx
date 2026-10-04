@@ -7,11 +7,7 @@ import { jsPDF } from "jspdf";
 // ─── GOOGLE CALENDAR INTEGRATION (OAuth real) ──────────────────────────────
 const GOOGLE_CLIENT_ID = "382190286267-tr23lvv8bug5540csvmaffv296ck4vbt.apps.googleusercontent.com";
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
-const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
-const GOOGLE_SCOPES = `${CALENDAR_SCOPE} ${SHEETS_SCOPE}`;
-const SPREADSHEET_ID = "1_pCk2xvsZBbvQZOqmSSbPT3kbVn7g0SqYCBzh1A1Z2s";
-const SHEET_RANGE = "A:I";
-const SHEET_HEADERS = ["id", "nombre", "telefono", "direccion", "tipo", "estado", "instagram", "notas", "ultima_modificacion"];
+const GOOGLE_SCOPES = CALENDAR_SCOPE;
 const GEOCODING_API_KEY = "AIzaSyCKieIR_467GcFB3pDXLyDac_bp6lsnpFk";
 
 // Geocodifica una dirección de texto (no links de Maps) usando Google Geocoding API
@@ -125,82 +121,6 @@ async function createCalendarEvent({ title, description, location, startDateTime
   } catch (e) {
     return { error: e.message };
   }
-}
-
-// ─── GOOGLE SHEETS SYNC ─────────────────────────────────────────────────────
-async function fetchSheetRows() {
-  const token = gAccessToken || getStoredGoogleToken();
-  if (!token) return { needsAuth: true, rows: [] };
-  try {
-    const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_RANGE}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (res.status === 401 || res.status === 403) {
-      return { needsAuth: true, rows: [] };
-    }
-    const data = await res.json();
-    return { needsAuth: false, rows: data.values || [] };
-  } catch {
-    return { needsAuth: false, rows: [] };
-  }
-}
-
-async function writeSheetRows(rows) {
-  const token = gAccessToken || getStoredGoogleToken();
-  if (!token) return { error: "needsAuth" };
-  try {
-    await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_RANGE}:clear`,
-      { method: "POST", headers: { Authorization: `Bearer ${token}` } }
-    );
-    const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/A1?valueInputOption=RAW`,
-      {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ values: rows }),
-      }
-    );
-    return await res.json();
-  } catch (e) {
-    return { error: e.message };
-  }
-}
-
-function clientToRow(c) {
-  return [
-    String(c.id ?? ""),
-    c.name ?? "",
-    c.phone ?? "",
-    c.address ?? "",
-    c.type ?? "",
-    c.status ?? "",
-    c.instagram ?? "",
-    c.notes ?? "",
-    String(c.lastModified ?? ""),
-  ];
-}
-
-function rowToClient(row) {
-  const [id, name, phone, address, type, status, instagram, notes, lastModified] = row;
-  if (!id || !name) return null;
-  return {
-    // OJO: el id de Firestore siempre es texto (muchos clientes viejos tienen
-    // ids tipo "O8oTMfl2muBgN4iMziLB", no un número). Convertirlo con Number()
-    // los mandaba a todos a NaN y los hacía pisarse entre sí — eso fue lo que
-    // causó el borrado masivo de visitas. Nunca más Number() acá.
-    id: String(id).trim(),
-    name: name || "",
-    phone: phone || "",
-    address: address || "",
-    type: type || "grow_shop",
-    status: status || "cold",
-    instagram: instagram || "",
-    notes: notes || "",
-    lastModified: Number(lastModified) || 0,
-    visits: [],
-  };
 }
 
 // ─── MOCK DATA (fallback / demo) ────────────────────────────────────────────
@@ -1385,141 +1305,53 @@ function ClientForm({ client, onSave, onClose, isNew }) {
 function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDeleteClient, rawAddClient, rawUpdateClient }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState("");
+  const [backupMsg, setBackupMsg] = useState("");
 
-  async function handleSyncSheets() {
-    setSyncing(true);
-    setSyncMsg("Conectando...");
+  function fechaArchivo() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+  }
 
-    let token = gAccessToken || getStoredGoogleToken();
-    if (!token) {
-      try {
-        token = await connectGoogleCalendar();
-      } catch {
-        setSyncing(false);
-        setSyncMsg("No se pudo conectar con Google.");
-        setTimeout(() => setSyncMsg(""), 4000);
-        return;
+  function bajarArchivo(contenido, nombre, tipo) {
+    const blob = new Blob([contenido], { type: tipo });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // Respaldo COMPLETO (clientes, visitas y fotos) en un archivo JSON.
+  // Solo LEE lo que hay en la app. No escribe ni borra nada.
+  function handleBackupJson() {
+    const data = { generado: new Date().toISOString(), cantidad: clients.length, clientes: clients };
+    bajarArchivo(JSON.stringify(data, null, 2), `respaldo-growcrm_${fechaArchivo()}.json`, "application/json");
+    setBackupMsg(`Respaldo descargado: ${clients.length} clientes.`);
+    setTimeout(() => setBackupMsg(""), 5000);
+  }
+
+  // Respaldo para abrir en Excel: una fila por visita (sin fotos).
+  // Solo LEE lo que hay en la app. No escribe ni borra nada.
+  function handleBackupCsv() {
+    const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const cab = ["cliente", "telefono", "direccion", "instagram", "encargado", "tipo", "estado", "notas_generales", "fecha_visita", "tipo_visita", "estado_visita", "notas_visita"];
+    const filas = [cab.map(esc).join(",")];
+    clients.forEach(c => {
+      const base = [c.name, c.phone, c.address, c.instagram, c.encargado, c.type, c.status, c.notes];
+      const visitas = c.visits || [];
+      if (visitas.length === 0) {
+        filas.push([...base, "", "", "", ""].map(esc).join(","));
+      } else {
+        visitas.forEach(v => filas.push([...base, v.date, v.tipo || "visita", v.status, v.notes].map(esc).join(",")));
       }
-    }
-
-    setSyncMsg("Leyendo planilla...");
-    const { needsAuth, rows } = await fetchSheetRows();
-    if (needsAuth) {
-      setSyncing(false);
-      setSyncMsg("Necesitás reconectar Google (falta el permiso de Sheets). Salí y volvé a entrar a Google Calendar.");
-      setTimeout(() => setSyncMsg(""), 6000);
-      return;
-    }
-
-    const dataRows = rows.slice(1);
-    const sheetClients = dataRows.map(rowToClient).filter(Boolean);
-    const sheetMap = new Map(sheetClients.map(c => [String(c.id), c]));
-    const localMap = new Map(clients.map(c => [c.id, c]));
-    const isSheetEmpty = sheetClients.length === 0;
-
-    setSyncMsg("Comparando datos...");
-
-    function fieldsDiffer(a, b) {
-      const fields = ["name", "phone", "address", "type", "status", "instagram", "notes"];
-      return fields.some(f => (a[f] || "") !== (b[f] || ""));
-    }
-
-    let actualizados = 0;
-    let geocodificados = 0;
-    for (const [id, localC] of localMap) {
-      const sheetC = sheetMap.get(id);
-      if (sheetC && fieldsDiffer(localC, sheetC)) {
-        const localTime = localC.lastModified || 0;
-        const sheetTime = sheetC.lastModified || 0;
-        // Antes decía ">= localTime": si los dos lados tenían el mismo
-        // "lastModified" (o venían en 0, sin fecha), la planilla igual
-        // ganaba y pisaba lo que había en la app. Ahora la planilla solo
-        // pisa cuando es un dato realmente más nuevo (fecha mayor a 0 y
-        // estrictamente posterior). Si hay empate o dudas, gana lo que ya
-        // está en la app.
-        if (sheetTime > localTime && sheetTime > 0) {
-          let merged = { ...localC, ...sheetC, visits: localC.visits || [], lastModified: Date.now() };
-          const addressChanged = (sheetC.address || "") !== (localC.address || "");
-          if (addressChanged && sheetC.address) {
-            setSyncMsg(`Geocodificando: ${sheetC.name}...`);
-            const coords = await geocodeAddress(sheetC.address);
-            if (coords) {
-              merged = { ...merged, lat: coords.lat, lng: coords.lng };
-              geocodificados++;
-            } else {
-              merged = { ...merged, lat: null, lng: null };
-            }
-          }
-          await rawUpdateClient(merged);
-          localMap.set(id, merged);
-          actualizados++;
-        }
-      }
-    }
-
-    const nuevos = [...sheetMap.keys()].filter(id => !localMap.has(id) && !deletedIds.has(String(id)));
-    if (nuevos.length > 20) {
-      const seguir = window.confirm(
-        `Atención: ${nuevos.length} clientes de la planilla no se pudieron emparejar con la app (podrían tratarse como nuevos y pisar datos existentes). ¿Seguro que querés continuar?`
-      );
-      if (!seguir) { setSyncing(false); setSyncMsg("Sincronización cancelada."); setTimeout(() => setSyncMsg(""), 4000); return; }
-    }
-    let omitidosPorBorrados = 0;
-    for (const [id, sheetC] of sheetMap) {
-      if (deletedIds.has(String(id))) { omitidosPorBorrados++; continue; }
-      if (!localMap.has(id)) {
-        let toAdd = sheetC;
-        if (sheetC.address) {
-          setSyncMsg(`Geocodificando: ${sheetC.name}...`);
-          const coords = await geocodeAddress(sheetC.address);
-          if (coords) {
-            toAdd = { ...sheetC, lat: coords.lat, lng: coords.lng };
-            geocodificados++;
-          }
-        }
-        await rawAddClient(toAdd);
-      }
-    }
-
-    // IMPORTANTE: la sincronización con Sheets NUNCA borra clientes
-    // automáticamente. Antes había un bloque acá que, si un cliente de la
-    // app no aparecía en la planilla, lo eliminaba (visitas, fotos, fichas,
-    // todo) detrás de un solo cartel de confirmación que no avisaba lo que
-    // realmente se perdía. Ese fue el origen del borrado masivo de datos.
-    // Ahora, si un cliente de la app no está en la planilla, sólo se avisa
-    // por consola para revisar a mano — nunca se borra nada solo. Para
-    // borrar un cliente hay que hacerlo a propósito desde su ficha.
-    if (!isSheetEmpty) {
-      const ausentes = [...localMap.values()].filter(c => !sheetMap.has(c.id));
-      if (ausentes.length > 0) {
-        console.warn(
-          `Sincronización: ${ausentes.length} cliente(s) de la app no aparecen en la planilla (no se borra nada automáticamente): ` +
-          ausentes.map(c => c.name).join(", ")
-        );
-      }
-    }
-
-    setSyncMsg("Actualizando planilla...");
-    const finalMap = new Map(localMap);
-    for (const [id, sheetC] of sheetMap) {
-      if (deletedIds.has(String(id))) continue;
-      if (!finalMap.has(id)) finalMap.set(id, sheetC);
-      else {
-        const localC = finalMap.get(id);
-        if ((sheetC.lastModified || 0) >= (localC.lastModified || 0)) {
-          finalMap.set(id, { ...localC, ...sheetC });
-        }
-      }
-    }
-    const finalClients = [...finalMap.values()];
-    const rowsToWrite = [SHEET_HEADERS, ...finalClients.map(clientToRow)];
-    await writeSheetRows(rowsToWrite);
-
-    setSyncing(false);
-    setSyncMsg(`¡Sincronizado! (${finalClients.length} clientes, ${actualizados} actualizados, ${geocodificados} geocodificados${omitidosPorBorrados > 0 ? `, ${omitidosPorBorrados} borrados respetados` : ""})`);
-    setTimeout(() => setSyncMsg(""), 4000);
+    });
+    bajarArchivo("\uFEFF" + filas.join("\r\n"), `respaldo-growcrm_${fechaArchivo()}.csv`, "text/csv;charset=utf-8");
+    setBackupMsg(`Excel descargado: ${clients.length} clientes.`);
+    setTimeout(() => setBackupMsg(""), 5000);
   }
 
   const filtered = clients.filter(c => {
@@ -1542,17 +1374,17 @@ function ClientsTab({ clients, deletedIds, onClientSelect, onAddClient, onDelete
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <button onClick={handleSyncSheets} disabled={syncing}
-          style={{ flex: 1, background: "#1E2E1F", border: "1px solid #D4C24A", borderRadius: 10, padding: "10px 0", color: "#D4C24A", fontSize: 13, fontWeight: 700, cursor: syncing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
-          <Icon d={ICONS.check} size={14} /> {syncing ? "Sincronizando..." : "Sincronizar con Sheets"}
+        <button onClick={handleBackupJson}
+          style={{ flex: 1, background: "#1E2E1F", border: "1px solid #D4C24A", borderRadius: 10, padding: "10px 0", color: "#D4C24A", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}>
+          <Icon d={ICONS.download} size={14} /> Descargar respaldo
         </button>
-        <a href={`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`} target="_blank" rel="noreferrer"
-          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 14px", color: "#4A6B4C", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          Abrir planilla
-        </a>
+        <button onClick={handleBackupCsv}
+          style={{ background: "#1E2E1F", border: "1px solid #2E4A30", borderRadius: 10, padding: "10px 14px", color: "#D4C24A", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          Excel
+        </button>
       </div>
-      {syncMsg && (
-        <div style={{ fontSize: 12, color: "#D4C24A", marginBottom: 12, textAlign: "center" }}>{syncMsg}</div>
+      {backupMsg && (
+        <div style={{ fontSize: 12, color: "#D4C24A", marginBottom: 12, textAlign: "center" }}>{backupMsg}</div>
       )}
 
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente…"
