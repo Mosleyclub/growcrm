@@ -1860,6 +1860,20 @@ function inicioDeSemana(date) {
   return d;
 }
 
+// Arma el número para wa.me: solo dígitos, con 549 si es un celular argentino sin código de país
+function numeroWhatsapp(tel) {
+  let d = String(tel || "").replace(/\D/g, "");
+  if (!d) return "";
+  d = d.replace(/^00/, "");
+  if (d.startsWith("54")) {
+    if (!d.startsWith("549")) d = "549" + d.slice(2);
+    return d;
+  }
+  d = d.replace(/^0/, "");
+  if (d.length === 10) return "549" + d;
+  return d;
+}
+
 // Comprime una foto (dataURL) a un tamaño manejable para el PDF, sin tocar el original en Firestore
 function comprimirImagenParaPdf(dataUrl, maxDim = 700, calidad = 0.6) {
   return new Promise(resolve => {
@@ -1917,7 +1931,7 @@ function ReportsTab({ clients, onSelectClient }) {
     (c.visits || []).forEach(v => {
       const fecha = parseFechaVisita(v.date);
       if (fecha && fecha >= desdeDate && fecha <= hastaDate) {
-        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientId: c.id });
+        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientPhone: c.phone, clientId: c.id });
       }
     });
   });
@@ -2057,6 +2071,14 @@ function ReportsTab({ clients, onSelectClient }) {
 
           if (v.clientAddress && !/^https?:\/\//i.test(v.clientAddress)) {
             doc.text(v.clientAddress, marginX, y, { maxWidth: pageWidth - marginX * 2 });
+            y += 5;
+          }
+
+          const waNum = numeroWhatsapp(v.clientPhone);
+          if (waNum) {
+            doc.setTextColor(0, 100, 200);
+            doc.textWithLink(`WhatsApp: ${v.clientPhone}`, marginX, y, { url: `https://wa.me/${waNum}` });
+            doc.setTextColor(0);
             y += 5;
           }
 
