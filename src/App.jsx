@@ -1860,6 +1860,40 @@ function inicioDeSemana(date) {
   return d;
 }
 
+// Zona (barrio y localidad) a partir de coordenadas, usando Google. Solo para mostrar en el informe: NO se guarda en la base.
+function zonaDesdeComponentes(comps) {
+  const buscar = (...tipos) => {
+    for (const t of tipos) {
+      const c = (comps || []).find(x => (x.types || []).includes(t));
+      if (c) return c.long_name;
+    }
+    return "";
+  };
+  const barrio = buscar("neighborhood", "sublocality_level_1", "sublocality");
+  const ciudad = buscar("locality", "administrative_area_level_2");
+  const provincia = buscar("administrative_area_level_1");
+  const partes = barrio ? [barrio, ciudad || provincia] : [ciudad, provincia];
+  return partes.filter((x, i, arr) => x && arr.indexOf(x) === i).join(", ");
+}
+
+const cacheZonas = {};
+async function zonaDesdeCoordenadas(lat, lng) {
+  if (!lat || !lng) return "";
+  const clave = `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
+  if (cacheZonas[clave] !== undefined) return cacheZonas[clave];
+  try {
+    const resp = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=es&key=${GEOCODING_API_KEY}`
+    );
+    const data = await resp.json();
+    const zona = data.status === "OK" && data.results[0] ? zonaDesdeComponentes(data.results[0].address_components) : "";
+    cacheZonas[clave] = zona;
+    return zona;
+  } catch (e) {
+    return "";
+  }
+}
+
 // Arma el número para wa.me: solo dígitos, con 549 si es un celular argentino sin código de país
 function numeroWhatsapp(tel) {
   let d = String(tel || "").replace(/\D/g, "");
@@ -1931,7 +1965,7 @@ function ReportsTab({ clients, onSelectClient }) {
     (c.visits || []).forEach(v => {
       const fecha = parseFechaVisita(v.date);
       if (fecha && fecha >= desdeDate && fecha <= hastaDate) {
-        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientPhone: c.phone, clientId: c.id });
+        visitasEnRango.push({ ...v, clientName: c.name, clientAddress: c.address, clientPhone: c.phone, clientLat: c.lat, clientLng: c.lng, clientId: c.id });
       }
     });
   });
@@ -1971,6 +2005,13 @@ function ReportsTab({ clients, onSelectClient }) {
         if (!v.photos || !v.photos.length) return v;
         const comprimidas = await Promise.all(v.photos.map(p => comprimirImagenParaPdf(p)));
         return { ...v, photos: comprimidas };
+      }));
+
+      // Zonas (barrio / localidad): se consultan a Google solo para este PDF, no se guardan
+      const zonasPorCliente = {};
+      const clientesConCoords = [...new Map(visitasParaPdf.filter(v => v.clientLat && v.clientLng).map(v => [v.clientId, v])).values()];
+      await Promise.all(clientesConCoords.map(async v => {
+        zonasPorCliente[v.clientId] = await zonaDesdeCoordenadas(v.clientLat, v.clientLng);
       }));
 
       const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -2071,6 +2112,12 @@ function ReportsTab({ clients, onSelectClient }) {
 
           if (v.clientAddress && !/^https?:\/\//i.test(v.clientAddress)) {
             doc.text(v.clientAddress, marginX, y, { maxWidth: pageWidth - marginX * 2 });
+            y += 5;
+          }
+
+          const zona = zonasPorCliente[v.clientId];
+          if (zona) {
+            doc.text(`Zona: ${zona}`, marginX, y);
             y += 5;
           }
 
